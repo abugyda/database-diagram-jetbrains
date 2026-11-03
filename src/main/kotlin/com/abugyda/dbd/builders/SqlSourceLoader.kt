@@ -29,7 +29,9 @@ object SqlSourceLoader {
     val result = linkedMapOf<String, Source>()
     val visiting = linkedSetOf<String>()
     fun visit(file: VirtualFile, defaultSchema: String) {
-      val key = "${file.path}::$defaultSchema"
+      com.intellij.openapi.progress.ProgressManager.checkCanceled()
+      check(!file.isDirectory) { "Not a SQL file: ${file.path}" }
+      val key = "${file.canonicalPath ?: file.path}::$defaultSchema"
       check(key !in visiting) { "Circular SQL include: ${(visiting + key).joinToString(" -> ")}" }
       if (key in result) return
       visiting.add(key)
@@ -48,13 +50,36 @@ object SqlSourceLoader {
       }
       visiting.remove(key)
     }
+    val fileIndex = com.intellij.openapi.roots.ProjectFileIndex.getInstance(project)
+    fun scan(folder: VirtualFile, schema: String, recursive: Boolean) {
+      val seen = mutableSetOf<String>()
+      fun walk(current: VirtualFile) {
+        com.intellij.openapi.progress.ProgressManager.checkCanceled()
+        if (!seen.add(current.canonicalPath ?: current.path)) return
+        for (child in current.children.sortedBy { it.name }) {
+          com.intellij.openapi.progress.ProgressManager.checkCanceled()
+          if (fileIndex.isExcluded(child)) continue
+          if (child.isDirectory) {
+            if (recursive && !child.`is`(com.intellij.openapi.vfs.VFileProperty.SYMLINK)) walk(child)
+          } else if (child.extension.equals("sql", true)) visit(child, schema)
+        }
+      }
+      walk(folder)
+    }
     for (item in config.imports) {
+      check(item.path.isNotBlank()) { "SQL source path cannot be empty; use '.' for the diagram's folder" }
       val file = (if (com.intellij.openapi.util.io.FileUtil.isAbsolute(item.path))
         com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(item.path)
       else directory.findFileByRelativePath(item.path))
         ?: error("Missing SQL import '${item.path}' relative to ${directory.path}")
-      check(!file.isDirectory && file.extension.equals("sql", ignoreCase = true)) { "Not a SQL file: ${item.path}" }
-      visit(file, item.schema?.takeIf { it.isNotBlank() } ?: config.defaultSchema)
+      val schema = item.schema?.takeIf { it.isNotBlank() } ?: config.defaultSchema
+      if (item.folder) {
+        check(file.isDirectory) { "Not a SQL folder: ${item.path}" }
+        scan(file, schema, item.recursive)
+      } else {
+        check(!file.isDirectory && file.extension.equals("sql", ignoreCase = true)) { "Not a SQL file: ${item.path}" }
+        visit(file, schema)
+      }
     }
     return result.values.toList()
   }

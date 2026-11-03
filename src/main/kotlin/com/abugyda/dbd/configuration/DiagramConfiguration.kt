@@ -3,7 +3,12 @@ package com.abugyda.dbd.configuration
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.jetbrains.yaml.psi.*
 
-data class SqlImport(val path: String, val schema: String? = null)
+data class SqlImport(
+  val path: String,
+  val schema: String? = null,
+  val folder: Boolean = false,
+  val recursive: Boolean = true
+)
 
 data class TableFilter(val mode: String = "exclude", val tables: Set<String> = emptySet()) {
   init { require(mode in setOf("include", "exclude")) { "Unknown table filter mode '$mode'" } }
@@ -25,10 +30,18 @@ data class DiagramConfiguration(
       append("  imports:\n")
       imports.forEach {
         append("    - path: ${quote(it.path)}\n")
+        if (it.folder) {
+          append("      type: folder\n")
+          append("      recursive: ${it.recursive}\n")
+        }
         it.schema?.takeIf(String::isNotBlank)?.let { name -> append("      schema: ${quote(name)}\n") }
       }
     }
-    append("  table_filter:\n    mode: ${tableFilter.mode}\n    tables: ${quote(tableFilter.tables.sorted())}\n")
+    append("  table_filter:\n    mode: ${tableFilter.mode}\n")
+    if (tableFilter.tables.isEmpty()) append("    tables: []\n") else {
+      append("    tables:\n")
+      tableFilter.tables.sorted().forEach { append("      - ${quote(it)}\n") }
+    }
   }
 
   companion object {
@@ -44,7 +57,11 @@ data class DiagramConfiguration(
         imports = (schema?.getKeyValueByKey("imports")?.value as? YAMLSequence)?.items.orEmpty().mapNotNull { item ->
           val mapping = item.value as? YAMLMapping
           val path = text(mapping?.getKeyValueByKey("path")?.value ?: item.value) ?: return@mapNotNull null
-          SqlImport(path, text(mapping?.getKeyValueByKey("schema")?.value))
+          val type = text(mapping?.getKeyValueByKey("type")?.value) ?: "file"
+          require(type in setOf("file", "folder")) { "Unknown SQL source type '$type' for '$path'" }
+          val recursive = text(mapping?.getKeyValueByKey("recursive")?.value)
+          require(recursive == null || recursive in setOf("true", "false")) { "Expected true or false for recursive in '$path'" }
+          SqlImport(path, text(mapping?.getKeyValueByKey("schema")?.value), type == "folder", recursive != "false")
         },
         dialect = text(schema?.getKeyValueByKey("dialect")?.value),
         defaultSchema = text(schema?.getKeyValueByKey("default_schema")?.value) ?: "public",

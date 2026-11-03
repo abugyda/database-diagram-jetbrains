@@ -119,11 +119,14 @@ class DiagramAppearanceTest : BasePlatformTestCase() {
     val scheme = EditorColorsManager.getInstance().globalScheme.clone() as com.intellij.openapi.editor.colors.EditorColorsScheme
     val canvas = DiagramColors.entries.single { it.token == "--bg-color" }
     val column = DiagramColors.entries.single { it.token == "--column-name-color" }
+    val combined = DiagramColors.entries.single { it.token == "--combined-key-color" }
     scheme.setColor(canvas.key, java.awt.Color(0x123456))
     scheme.setColor(column.key, java.awt.Color(0xabcdef))
+    scheme.setColor(combined.key, java.awt.Color(0x22bb66))
     val tokens = DiagramColors.overrides(scheme)
     assertEquals("#123456", tokens["--bg-color"])
     assertEquals("#abcdef", tokens["--column-name-color"])
+    assertEquals("#22bb66", tokens["--combined-key-color"])
     assertTrue(page.demoText.contains("<nn>NN</nn>"))
     assertTrue(com.intellij.openapi.options.colors.ColorSettingsPage.EP_NAME.extensionList.any { it is DatabaseDiagramColorSettingsPage })
   }

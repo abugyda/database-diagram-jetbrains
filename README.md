@@ -99,6 +99,12 @@ per-table and per-note colors take precedence over scheme default backgrounds;
 default header/note foregrounds retain automatic contrast for those card colors.
 Scheme changes update open diagrams and use standard scheme import/export.
 
+Key icons default to yellow for primary keys, blue for foreign keys, and a green
+key for columns that are both (PK + FK). Each has its own Color Scheme setting.
+The toolbar legend explains every badge, indexed-row tint, relation cardinality,
+highlighted flow and diagram symbol. It distinguishes combined PK/FK roles from
+multi-column composite keys.
+
 Type badges ENM, REC, DOM, RNG, and ARR and behavior markers C (check),
 I (identity), and G (computed generated column) each have independent foreground,
 background, bold, and italic settings in the Color Scheme page. Both light and
@@ -110,14 +116,21 @@ SQL is retained in tooltips and constraints are listed in table details.
 ## Visual diagram setup
 
 Right-click a project folder and choose **New → ERD Diagram** to open setup.
-Choose the diagram name, then add SQL entrypoints with IntelliJ's project file
-chooser. Multiple files can be selected; included `\i` and `\ir` files are
-resolved automatically. Select the IDE dialect mapping or PostgreSQL, and supply
-optional schema overrides for sources using unqualified table names.
+Choose the diagram name, then add SQL files or folders with IntelliJ's project
+picker. Folder imports are persistent: newly added SQL files are discovered
+automatically. The **Subfolders** checkbox controls recursive folder discovery
+(enabled by default). IDE-excluded descendants and directory symlinks are skipped
+during folder traversal. Included `\i` and `\ir` files are still resolved, even
+when recursive folder discovery is disabled. Overlapping folders, files, and
+includes are deduplicated per file and schema override. Select the IDE dialect
+mapping or PostgreSQL, and supply optional schema overrides for unqualified names.
 
-**Preview tables** validates the sources without creating a file. The Tables tab
-provides a searchable checkbox tree grouped by schema, **Select shown**,
+The resizable split view keeps sources on the left and tables on the right.
+Table discovery runs automatically in the background after source changes;
+**Refresh** retries discovery manually. Checkbox choices survive rediscovery.
+The right panel provides a searchable tree grouped by schema, **Select shown**,
 **Clear shown**, and **Include related tables**. Checked tables are displayed.
+SQL edits, file creation/deletion, and file or directory renames refresh discovery.
 
 - **All tables except unchecked** includes newly discovered tables automatically.
 - **Only checked tables** keeps newly discovered tables hidden until selected.
@@ -134,7 +147,9 @@ and colors. Relationships are drawn only when both endpoint tables are visible;
 foreign-key reference metadata remains available when a target is hidden.
 SQL files are read to discover the schema. Configuration updates only `.erd.yaml`.
 
-The generated filter is stored alongside imports:
+Imports and filters are written in block-style YAML rather than long inline
+arrays. Existing file-only configurations remain supported. Folder imports add
+`type: folder` and `recursive`:
 
 ```yaml
 schema:
@@ -142,9 +157,13 @@ schema:
   imports:
     - path: ../public.sql
       schema: public
+    - path: ../tables
+      type: folder
+      recursive: true
   table_filter:
     mode: exclude
-    tables: [public.internal_events]
+    tables:
+      - public.internal_events
 ```
 
 `exclude` lists hidden tables; `include` lists the tables to show. IDs are

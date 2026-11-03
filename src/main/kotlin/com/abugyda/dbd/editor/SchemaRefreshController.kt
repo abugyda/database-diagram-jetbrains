@@ -19,6 +19,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.util.Alarm
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.abugyda.dbd.builders.ErdDataBuilder
+import com.abugyda.dbd.builders.affectsSqlSources
 import com.abugyda.dbd.webview.WebviewBridge.SchemaPayload
 import org.jetbrains.concurrency.CancellablePromise
 import org.jetbrains.yaml.psi.YAMLFile
@@ -52,7 +53,7 @@ internal class SchemaRefreshController(
     }, parent)
     project.messageBus.connect(parent).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
       override fun after(events: List<VFileEvent>) {
-        if (events.any { it.path.endsWith(".sql", true) }) request(500)
+        if (events.any(::affectsSqlSources)) request(500)
       }
     })
   }

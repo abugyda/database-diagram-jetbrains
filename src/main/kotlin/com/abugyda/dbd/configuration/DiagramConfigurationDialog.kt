@@ -1,6 +1,7 @@
 package com.abugyda.dbd.configuration
 
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
@@ -10,18 +11,27 @@ import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.psi.PsiDocumentManager
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.icons.AllIcons
 import com.intellij.ui.CheckboxTree
 import com.intellij.ui.CheckedTreeNode
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
+import com.intellij.util.Alarm
 import com.abugyda.dbd.builders.ErdDataBuilder
 import com.abugyda.dbd.builders.SqlSourceLoader
+import com.abugyda.dbd.builders.affectsSqlSources
 import com.abugyda.dbd.webview.WebviewBridge.DbTable
 import com.abugyda.dbd.webview.WebviewBridge.SchemaPayload
 import org.jetbrains.yaml.YAMLElementGenerator
@@ -33,8 +43,9 @@ import java.awt.event.WindowEvent
 import java.util.concurrent.Callable
 import javax.swing.*
 import javax.swing.event.DocumentEvent
-import javax.swing.table.DefaultTableModel
+import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.tree.DefaultTreeModel
+import org.jetbrains.concurrency.CancellablePromise
 
 /** Shared setup for new diagrams and the webview's Configure diagram action. */
 class DiagramConfigurationDialog(
@@ -45,20 +56,22 @@ class DiagramConfigurationDialog(
   includeTableIds: List<String> = emptyList()
 ) : DialogWrapper(project, true) {
   private val nameField = JTextField("diagram", 24)
-  private val sourceModel = DefaultTableModel(arrayOf("SQL source (relative to diagram)", "Schema override (optional)"), 0)
+  private val sourceModel = SqlSourcesTableModel(initial.imports)
   private val sourceTable = JBTable(sourceModel)
   private val dialect = JComboBox(arrayOf("Use IDE mapping", "PostgreSQL") +
     if (initial.dialect != null && initial.dialect !in setOf("postgres", "postgresql")) arrayOf(initial.dialect) else emptyArray())
   private val defaultSchema = JTextField(initial.defaultSchema, 16)
   private val mode = JComboBox(arrayOf("All tables except unchecked", "Only checked tables"))
-  private val tabs = JTabbedPane()
+  private val splitter = OnePixelSplitter(false, "DatabaseDiagram.Configure.Split", .45f)
+  private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
+  private var pending: CancellablePromise<*>? = null
   private val search = SearchTextField()
-  private val status = JBLabel("Choose SQL sources, then preview the tables.")
+  private val status = JBLabel("Add SQL files or a folder to discover tables.")
   private val count = JBLabel(" ")
-  private val preview = JButton("Preview tables")
+  private val preview = JButton("Refresh")
   private val choices = includeTableIds.associateWith { true }.toMutableMap()
   private var catalog: SchemaPayload? = null
-  private var revision = 0
+  @Volatile private var revision = 0
   private var dirty = true
   private var loading = false
   private var discoveryError: String? = null
@@ -79,24 +92,40 @@ class DiagramConfigurationDialog(
   }
 
   internal val setupPanel: JComponent by lazy { JPanel(BorderLayout(0, JBUI.scale(10))).apply {
-    preferredSize = Dimension(JBUI.scale(780), JBUI.scale(540))
+    preferredSize = Dimension(JBUI.scale(1080), JBUI.scale(600))
     if (creating) add(JPanel(FlowLayout(FlowLayout.LEADING)).apply { add(JBLabel("Diagram name:")); add(nameField) }, BorderLayout.NORTH)
-    add(tabs, BorderLayout.CENTER)
-    add(status, BorderLayout.SOUTH)
+    add(splitter, BorderLayout.CENTER)
   } }
 
   init {
     title = if (creating) "New ERD Diagram" else "Configure Diagram"
     setOKButtonText(if (creating) "Create diagram" else "Apply")
-    initial.imports.forEach { sourceModel.addRow(arrayOf(it.path, it.schema ?: "")) }
     dialect.selectedIndex = when (initial.dialect) { null -> 0; "postgres", "postgresql" -> 1; else -> 2 }
     mode.selectedIndex = if (initial.tableFilter.mode == "include") 1 else 0
     tree.isRootVisible = false
     tree.showsRootHandles = true
     sourceTable.putClientProperty("terminateEditOnFocusLost", true)
-    sourceTable.columnModel.getColumn(0).preferredWidth = 460
-    sourceTable.columnModel.getColumn(1).preferredWidth = 170
-    sourceTable.emptyText.text = "Add SQL entrypoints from your project"
+    sourceTable.columnModel.getColumn(0).preferredWidth = 260
+    sourceTable.columnModel.getColumn(1).preferredWidth = 110
+    sourceTable.columnModel.getColumn(2).apply { preferredWidth = 85; maxWidth = JBUI.scale(100) }
+    val checkboxRenderer = sourceTable.getDefaultRenderer(java.lang.Boolean::class.java)
+    val emptyRenderer = DefaultTableCellRenderer()
+    sourceTable.columnModel.getColumn(2).cellRenderer = javax.swing.table.TableCellRenderer { table, value, selected, focus, row, column ->
+      if (sourceModel.sourceAt(table.convertRowIndexToModel(row)).folder)
+        checkboxRenderer.getTableCellRendererComponent(table, value, selected, focus, row, column)
+      else emptyRenderer.getTableCellRendererComponent(table, "", selected, focus, row, column)
+    }
+    sourceTable.columnModel.getColumn(0).cellRenderer = object : DefaultTableCellRenderer() {
+      override fun getTableCellRendererComponent(table: JTable, value: Any?, selected: Boolean, focus: Boolean, row: Int, column: Int): java.awt.Component {
+        super.getTableCellRendererComponent(table, value, selected, focus, row, column)
+        val source = sourceModel.sourceAt(table.convertRowIndexToModel(row))
+        icon = if (source.folder) AllIcons.Nodes.Folder else AllIcons.FileTypes.Text
+        toolTipText = "${if (source.folder) "Folder" else "SQL file"}: ${source.path}"
+        return this
+      }
+    }
+    sourceTable.accessibleContext.accessibleName = "SQL sources"
+    sourceTable.emptyText.text = "Add SQL files or folders from your project"
     sourceModel.addTableModelListener { invalidateSources() }
     dialect.addActionListener { invalidateSources() }
     defaultSchema.document.addDocumentListener(object : DocumentAdapter() {
@@ -106,29 +135,35 @@ class DiagramConfigurationDialog(
       override fun textChanged(e: DocumentEvent) = rebuildTree()
     })
     mode.addActionListener { updateCount() }
-    preview.addActionListener { tabs.selectedIndex = 1; if (!loading) discover() }
-    tabs.addTab("1. SQL sources", sourcesPanel())
-    tabs.addTab("2. Tables", tablesPanel())
-    tabs.addChangeListener { if (tabs.selectedIndex == 1 && dirty && !loading && tabs.isShowing) discover() }
+    preview.addActionListener { if (!loading) discover() }
+    splitter.firstComponent = sourcesPanel()
+    splitter.secondComponent = tablesPanel()
     init()
     setOKActionEnabled(false)
     window?.addWindowListener(object : WindowAdapter() {
       override fun windowOpened(e: WindowEvent) {
         if (initial.imports.isNotEmpty()) {
-          if (includeTableIds.isNotEmpty()) tabs.selectedIndex = 1
           if (!loading) discover()
         }
       }
     })
+    project.messageBus.connect(disposable).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+      override fun after(events: List<VFileEvent>) {
+        if (events.any(::affectsSqlSources)) scheduleSourceRefresh()
+      }
+    })
+    EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
+      override fun documentChanged(event: com.intellij.openapi.editor.event.DocumentEvent) {
+        if (FileDocumentManager.getInstance().getFile(event.document)?.extension.equals("sql", true)) scheduleSourceRefresh()
+      }
+    }, disposable)
   }
 
   val fileName: String get() = nameField.text.trim().let { if (it.endsWith(".erd.yaml", true)) it else "$it.erd.yaml" }
 
   private fun sourceConfig(): DiagramConfiguration {
     if (sourceTable.isEditing) sourceTable.cellEditor.stopCellEditing()
-    val imports = (0 until sourceModel.rowCount).map { row ->
-      SqlImport(sourceModel.getValueAt(row, 0).toString().trim(), sourceModel.getValueAt(row, 1)?.toString()?.trim()?.takeIf { it.isNotEmpty() })
-    }
+    val imports = sourceModel.imports()
     val selectedDialect = when (dialect.selectedIndex) { 0 -> null; 1 -> "postgresql"; else -> initial.dialect }
     return DiagramConfiguration(imports, selectedDialect, defaultSchema.text.trim())
   }
@@ -147,27 +182,46 @@ class DiagramConfigurationDialog(
 
   private fun sourcesPanel(): JComponent = JPanel(BorderLayout(0, JBUI.scale(8))).apply {
     border = JBUI.Borders.empty(12)
-    add(JBLabel("Choose SQL entrypoints. Included SQL files are discovered automatically."), BorderLayout.NORTH)
+    minimumSize = Dimension(JBUI.scale(300), 0)
+    add(JPanel(BorderLayout(0, 8)).apply {
+      add(com.intellij.ui.TitledSeparator("SQL sources"), BorderLayout.NORTH)
+      add(JPanel(java.awt.GridLayout(1, 3, 6, 0)).apply {
+        add(JButton("Add SQL files…").apply { addActionListener { addSources(false) } })
+        add(JButton("Add folder…").apply { addActionListener { addSources(true) } })
+        add(JButton("Remove").apply {
+          toolTipText = "Remove selected sources"
+          addActionListener {
+            if (sourceTable.isEditing) sourceTable.cellEditor.stopCellEditing()
+            sourceTable.selectedRows.map { sourceTable.convertRowIndexToModel(it) }.sortedDescending().forEach(sourceModel::remove)
+          }
+        })
+      }, BorderLayout.SOUTH)
+    }, BorderLayout.NORTH)
     add(JBScrollPane(sourceTable), BorderLayout.CENTER)
     add(JPanel().apply {
       layout = BoxLayout(this, BoxLayout.Y_AXIS)
-      add(JPanel(FlowLayout(FlowLayout.LEADING)).apply {
-        add(JButton("Add SQL files…").apply { addActionListener { addSources() } })
-        add(JButton("Remove selected").apply { addActionListener {
-          sourceTable.selectedRows.map { sourceTable.convertRowIndexToModel(it) }.sortedDescending().forEach(sourceModel::removeRow)
-        } })
-        add(preview)
+      add(JPanel(java.awt.GridLayout(2, 2, 8, 8)).apply {
+        add(JBLabel("Dialect:")); add(dialect)
+        add(JBLabel("Default schema:")); add(defaultSchema)
       })
-      add(JPanel(FlowLayout(FlowLayout.LEADING)).apply {
-        add(JBLabel("Dialect:")); add(dialect); add(JBLabel("Default schema:")); add(defaultSchema)
-      })
-      add(JBLabel("Edit a source path to repair an import. Schema overrides apply to unqualified names."))
+      add(Box.createVerticalStrut(JBUI.scale(10)))
+      add(JBLabel("<html>Paths are relative to the diagram. Folder sources discover SQL<br>files automatically. Subfolders controls recursive discovery.<br>Schema overrides apply to unqualified names.</html>"))
+      add(Box.createVerticalStrut(JBUI.scale(10)))
+      add(JPanel(BorderLayout()).apply { add(status, BorderLayout.CENTER) })
     }, BorderLayout.SOUTH)
   }
 
   private fun tablesPanel(): JComponent = JPanel(BorderLayout(0, JBUI.scale(8))).apply {
     border = JBUI.Borders.empty(12)
-    add(JPanel(BorderLayout(8, 8)).apply { add(search, BorderLayout.CENTER); add(mode, BorderLayout.EAST) }, BorderLayout.NORTH)
+    minimumSize = Dimension(JBUI.scale(340), 0)
+    add(JPanel(BorderLayout(8, 8)).apply {
+      add(JPanel(BorderLayout(8, 0)).apply {
+        add(com.intellij.ui.TitledSeparator("Tables"), BorderLayout.CENTER)
+        add(preview, BorderLayout.EAST)
+      }, BorderLayout.NORTH)
+      add(search, BorderLayout.CENTER)
+      add(mode, BorderLayout.SOUTH)
+    }, BorderLayout.NORTH)
     add(JBScrollPane(tree), BorderLayout.CENTER)
     add(JPanel(BorderLayout()).apply {
       add(JPanel(FlowLayout(FlowLayout.LEADING)).apply {
@@ -185,9 +239,10 @@ class DiagramConfigurationDialog(
     }, BorderLayout.SOUTH)
   }
 
-  private fun addSources() {
-    val descriptor = FileChooserDescriptor(true, false, false, false, false, true)
-      .withTitle("Add SQL Sources").withExtensionFilter("SQL files", "sql")
+  private fun addSources(folder: Boolean) {
+    val descriptor = FileChooserDescriptor(!folder, folder, false, false, false, true)
+      .withTitle(if (folder) "Add SQL Folders" else "Add SQL Sources")
+    if (!folder) descriptor.withExtensionFilter("SQL files", "sql")
     descriptor.isForcedToUseIdeaFileChooser = true
     val roots = com.intellij.openapi.roots.ProjectRootManager.getInstance(project).contentRoots
     if (roots.isNotEmpty()) descriptor.withRoots(*roots).withShowFileSystemRoots(false)
@@ -195,51 +250,79 @@ class DiagramConfigurationDialog(
       files.forEach { file ->
         val path = VfsUtilCore.getRelativePath(file, directory, '/')
           ?: com.intellij.openapi.util.io.FileUtil.getRelativePath(directory.path, file.path, '/') ?: file.path
-        if ((0 until sourceModel.rowCount).none { sourceModel.getValueAt(it, 0) == path }) sourceModel.addRow(arrayOf(path, ""))
+        sourceModel.add(SqlImport(path.ifEmpty { "." }, folder = folder))
       }
     }
   }
 
   private fun invalidateSources() {
     revision++
+    pending?.cancel()
+    pending = null
+    refreshAlarm.cancelAllRequests()
     dirty = true
     loading = false
-    catalog = null
     discoveryError = null
-    status.text = "Sources changed. Preview tables to validate them."
+    status.text = "Sources changed. Updating tables…"
+    status.toolTipText = status.text
     preview.isEnabled = true
+    tree.isEnabled = false
     setOKActionEnabled(false)
-    rebuildTree()
+    refreshAlarm.addRequest({
+      ApplicationManager.getApplication().invokeLater(Runnable {
+        if (!refreshAlarm.isDisposed && dirty && !loading) discover()
+      }, ModalityState.stateForComponent(setupPanel))
+    }, 350)
+  }
+
+  private fun scheduleSourceRefresh() {
+    val app = ApplicationManager.getApplication()
+    if (app.isDispatchThread) {
+      if (!refreshAlarm.isDisposed) invalidateSources()
+    } else app.invokeLater(Runnable {
+      if (!refreshAlarm.isDisposed) invalidateSources()
+    }, ModalityState.any())
   }
 
   private fun discover() {
+    refreshAlarm.cancelAllRequests()
     val config = sourceConfig()
     if (config.imports.isEmpty()) { status.text = "Add at least one SQL source."; return }
     if (config.defaultSchema.isBlank()) { status.text = "Enter a default schema name."; return }
-    PsiDocumentManager.getInstance(project).commitAllDocuments()
     val ticket = ++revision
+    pending?.cancel()
     loading = true
     preview.isEnabled = false
+    tree.isEnabled = false
     setOKActionEnabled(false)
     status.text = "Reading SQL sources…"
-    ReadAction.nonBlocking(Callable {
+    pending = ReadAction.nonBlocking(Callable {
       try {
         val sources = SqlSourceLoader.load(directory, config, project)
         val yaml = YAMLElementGenerator.getInstance(project).createDummyYamlWithText(config.yaml())
         Result.success(ErdDataBuilder.build(yaml, project, sources))
       } catch (error: ProcessCanceledException) { throw error }
       catch (error: Exception) { Result.failure<SchemaPayload>(error) }
-    }).withDocumentsCommitted(project).expireWith(disposable)
-      .finishOnUiThread(ModalityState.stateForComponent(tabs)) { result ->
+    }).withDocumentsCommitted(project).inSmartMode(project).expireWith(disposable)
+      .expireWhen { ticket != revision || project.isDisposed }.coalesceBy(this)
+      .finishOnUiThread(ModalityState.stateForComponent(setupPanel)) { result ->
         if (ticket == revision) {
+          pending = null
           loading = false
           preview.isEnabled = true
           result.fold(onSuccess = { payload ->
             catalog = payload
-            payload.tables.forEach { choices.putIfAbsent(it.id, initial.tableFilter.includes(it.id)) }
+            payload.tables.forEach {
+              val checked = if (mode.selectedIndex == 0)
+                initial.tableFilter.mode != "exclude" || initial.tableFilter.includes(it.id)
+              else initial.tableFilter.mode == "include" && initial.tableFilter.includes(it.id)
+              choices.putIfAbsent(it.id, checked)
+            }
             dirty = false
             discoveryError = null
-            status.text = "${payload.tables.size} tables · ${payload.relationships.size} relationships found. Checked tables will appear in the diagram."
+            tree.isEnabled = true
+            status.text = "${payload.sourceCount ?: 0} SQL files · ${payload.tables.size} tables · ${payload.relationships.size} relationships"
+            status.toolTipText = "${status.text}. Checked tables will appear in the diagram."
             rebuildTree()
             setOKActionEnabled(true)
           }, onFailure = { error ->
@@ -292,7 +375,7 @@ class DiagramConfigurationDialog(
       if (directory.findChild(fileName) != null) return ValidationInfo("A file named $fileName already exists.", nameField)
     }
     if (sourceConfig().imports.isEmpty()) return ValidationInfo("Add at least one SQL source.", sourceTable)
-    if (dirty || catalog == null) return ValidationInfo(discoveryError ?: "Preview the tables before applying.", preview)
+    if (dirty || catalog == null) return ValidationInfo(discoveryError ?: "Wait for table discovery or click Refresh.", preview)
     return null
   }
 }

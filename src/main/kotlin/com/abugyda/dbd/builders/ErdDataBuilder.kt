@@ -408,7 +408,7 @@ object ErdDataBuilder {
       val y = m.getKeyValueByKey("y")?.valueText?.toIntOrNull() ?: 0
       val width = m.getKeyValueByKey("width")?.valueText?.toIntOrNull() ?: 200
       DbNote(
-        id = id, name = id,
+        id = id, name = m.getKeyValueByKey("name")?.valueText ?: id,
         content = text.removeSurrounding("\"").trim(),
         horizontal = x, vertical = y, width = width,
         height = m.getKeyValueByKey("height")?.valueText?.toIntOrNull(),

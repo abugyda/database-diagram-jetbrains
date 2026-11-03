@@ -14,6 +14,42 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SchemaRefreshControllerTest : BasePlatformTestCase() {
+  fun testFolderSourcesRefreshForNewFilesSqlRenamesAndDirectoryMovesAndDeletion() {
+    val first = myFixture.addFileToProject("definitions/nested/one.sql", "CREATE TABLE one (id int PRIMARY KEY);")
+    val yaml = myFixture.addFileToProject("folder.erd.yaml", """
+      schema:
+        dialect: postgresql
+        imports:
+          - path: definitions
+            type: folder
+            recursive: true
+    """.trimIndent()) as YAMLFile
+    val doc = FileDocumentManager.getInstance().getDocument(yaml.virtualFile)!!
+    val parent = Disposer.newDisposable(testRootDisposable, "folder refresh")
+    val payloads = mutableListOf<SchemaPayload>()
+    val errors = mutableListOf<String>()
+    val controller = SchemaRefreshController(project, yaml.virtualFile, doc, parent,
+      { true }, payloads::add, errors::add)
+    try {
+      controller.refresh()
+      PlatformTestUtil.waitWithEventsDispatching("Initial folder schema", { payloads.size == 1 }, 15)
+      myFixture.addFileToProject("definitions/nested/two.sql", "CREATE TABLE two (id int PRIMARY KEY);")
+      PlatformTestUtil.waitWithEventsDispatching("New folder SQL", { payloads.lastOrNull()?.tables?.size == 2 }, 15)
+      val two = myFixture.findFileInTempDir("definitions/nested/two.sql")
+      WriteCommandAction.runWriteCommandAction(project) { two.rename(this, "two.txt") }
+      PlatformTestUtil.waitWithEventsDispatching("SQL renamed to non-SQL", {
+        payloads.lastOrNull()?.tables?.map { it.name } == listOf("one")
+      }, 15)
+      val previous = payloads.size
+      val nested = first.virtualFile.parent
+      WriteCommandAction.runWriteCommandAction(project) { nested.rename(this, "renamed") }
+      PlatformTestUtil.waitWithEventsDispatching("Directory rename", { payloads.size > previous }, 15)
+      WriteCommandAction.runWriteCommandAction(project) { nested.delete(this) }
+      PlatformTestUtil.waitWithEventsDispatching("Directory deletion", { payloads.lastOrNull()?.tables?.isEmpty() == true }, 15)
+      assertEmpty(errors)
+    } finally { Disposer.dispose(parent) }
+  }
+
   fun testStartupAndUnsavedSqlRefreshReadInBackgroundAndPublishOnEdt() {
     val sql = myFixture.addFileToProject("tables.sql", "CREATE TABLE users (id int PRIMARY KEY);")
     val yaml = myFixture.addFileToProject("map.erd.yaml", "schema:\n  dialect: postgresql\n  imports: [tables.sql]") as YAMLFile

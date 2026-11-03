@@ -132,6 +132,7 @@ class WebviewBridge {
     data class SavePresentation(
       val tables: List<Map<String, Any?>> = emptyList(),
       val notes: List<Map<String, Any?>> = emptyList(),
+      val deletedNoteIds: List<String> = emptyList(),
       val groups: List<Map<String, Any?>> = emptyList(),
       val viewport: Map<String, Double>? = null,
       val displaySettings: Map<String, Any?> = emptyMap()

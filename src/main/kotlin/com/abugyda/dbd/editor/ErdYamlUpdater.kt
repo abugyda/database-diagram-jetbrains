@@ -107,9 +107,26 @@ object ErdYamlUpdater {
           )
         }
       }
+      val sequence = root.getKeyValueByKey("notes")?.value as? YAMLSequence
+      sequence?.items?.filter { item ->
+        val mapping = item.value as? YAMLMapping
+        mapping?.getKeyValueByKey("id")?.valueText in message.deletedNoteIds
+      }?.forEach { it.delete() }
       for (item in message.notes) {
         val id = item["id"] as? String ?: continue
-        val note = findNoteMapping(yamlFile, id) ?: continue
+        if (id in message.deletedNoteIds) continue
+        var note = findNoteMapping(yamlFile, id)
+        if (note == null) {
+          val content = item["content"] as? String ?: continue
+          appendNote(project, root, mapOf("id" to id, "name" to (item["name"] ?: id), "text" to content))
+          note = findNoteMapping(yamlFile, id) ?: error("Could not create note '$id'")
+        }
+        item["name"]?.let { setScalar(project, note, "name", mapper.writeValueAsString(it)) }
+        item["content"]?.let {
+          val key = if (note.getKeyValueByKey("text") != null) "text"
+            else if (note.getKeyValueByKey("content") != null) "content" else "text"
+          setScalar(project, note, key, mapper.writeValueAsString(it))
+        }
         for (key in listOf(
           "x",
           "y",
@@ -126,10 +143,44 @@ object ErdYamlUpdater {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  private fun appendNote(project: Project, root: YAMLMapping, values: Map<String, Any?>) {
+    val gen = YAMLElementGenerator.getInstance(project)
+    val json = mapper.writeValueAsString(values)
+    val sequence = blockNotes(project, root)
+    if (sequence == null) {
+      val fields = values.entries.joinToString("\n    ") { (key, value) -> "$key: ${mapper.writeValueAsString(value)}" }
+      val file = gen.createDummyYamlWithText("notes:\n  - $fields")
+      root.putKeyValue((file.documents.first().topLevelValue as YAMLMapping).keyValues.first())
+      removePlaceholder(root)
+    } else {
+      sequence.add(gen.createEol())
+      sequence.add(gen.createIndent(2))
+      sequence.add(gen.createSequenceItem(json))
+    }
+  }
+
+  /** Block mappings cannot be inserted into a flow-style sequence. Normalize that list first. */
+  private fun blockNotes(project: Project, root: YAMLMapping): YAMLSequence? {
+    val sequence = root.getKeyValueByKey("notes")?.value as? YAMLSequence ?: return null
+    if (!sequence.text.trimStart().startsWith("[")) return sequence
+    if (sequence.items.isEmpty()) {
+      root.getKeyValueByKey("notes")?.delete()
+      return null
+    }
+    val items = sequence.items.joinToString("\n") { item ->
+      val mapping = item.value as? YAMLMapping
+      if (mapping == null) "  - ${item.value?.text ?: "null"}"
+      else "  - " + mapping.keyValues.joinToString("\n    ") { it.text }
+    }
+    val file = YAMLElementGenerator.getInstance(project).createDummyYamlWithText("notes:\n$items")
+    val replacement = (file.documents.first().topLevelValue as YAMLMapping).keyValues.first().value!!
+    return sequence.replace(replacement) as YAMLSequence
+  }
+
   /** Find the YAMLMapping for a note item by its `id` value. */
   private fun findNoteMapping(yamlFile: YAMLFile, noteId: String): YAMLMapping? {
     val root = root(yamlFile) ?: return null
-    val seq = root.getKeyValueByKey("notes")?.value as? YAMLSequence ?: return null
+    val seq = blockNotes(yamlFile.project, root) ?: return null
     return seq.items
       .mapNotNull { it.value as? YAMLMapping }
       .firstOrNull { it.getKeyValueByKey("id")?.valueText?.removeSurrounding("\"") == noteId }
@@ -140,14 +191,29 @@ object ErdYamlUpdater {
     WriteCommandAction.runWriteCommandAction(project, "Configure ERD diagram", null, Runnable {
       val root = root(yamlFile) ?: error("Expected a YAML root mapping")
       val schema = getOrCreateMapping(project, root, "schema")
-      setScalar(project, schema, "imports", mapper.writeValueAsString(config.imports.map { item ->
-        buildMap { put("path", item.path); item.schema?.takeIf { it.isNotBlank() }?.let { put("schema", it) } }
-      }))
+      val current = com.abugyda.dbd.configuration.DiagramConfiguration.read(yamlFile)
+      // Copy block-style entries instead of serializing collections as one long JSON line.
+      val generated = YAMLElementGenerator.getInstance(project).createDummyYamlWithText(config.yaml())
+      val generatedSchema = (generated.documents.first().topLevelValue as YAMLMapping)
+        .getKeyValueByKey("schema")!!.value as YAMLMapping
+      for (key in listOf("imports", "table_filter")) {
+        val replacement = generatedSchema.getKeyValueByKey(key)!!
+        val existing = schema.getKeyValueByKey(key)
+        val value = existing?.value
+        if (key == "imports" && current.imports == config.imports && value is YAMLSequence &&
+          (value.items.isEmpty() || !value.text.trimStart().startsWith("["))) continue
+        if (key == "table_filter" && current.tableFilter == config.tableFilter && value is YAMLMapping &&
+          !value.text.trimStart().startsWith("{")) {
+          val tables = value.getKeyValueByKey("tables")?.value as? YAMLSequence
+          if (tables != null && (tables.items.isEmpty() || !tables.text.trimStart().startsWith("["))) continue
+        }
+        if (existing?.text == replacement.text) continue
+        if (existing == null) schema.putKeyValue(replacement) else existing.replace(replacement)
+        removePlaceholder(schema)
+      }
       if (config.dialect == null) schema.getKeyValueByKey("dialect")?.delete()
       else setScalar(project, schema, "dialect", mapper.writeValueAsString(config.dialect))
       setScalar(project, schema, "default_schema", mapper.writeValueAsString(config.defaultSchema))
-      setScalar(project, schema, "table_filter", mapper.writeValueAsString(mapOf(
-        "mode" to config.tableFilter.mode, "tables" to config.tableFilter.tables.sorted())))
     }, yamlFile)
   }
 

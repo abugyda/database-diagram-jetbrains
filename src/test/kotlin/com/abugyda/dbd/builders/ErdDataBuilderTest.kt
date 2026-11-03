@@ -8,6 +8,50 @@ import com.abugyda.dbd.webview.WebviewBridge.Client.SavePresentation
 import org.jetbrains.yaml.psi.YAMLFile
 
 class ErdDataBuilderTest : BasePlatformTestCase() {
+  fun testNotesCanBeCreatedEditedAndDeletedWithoutLosingOtherNotes() {
+    for ((index, notes) in listOf("", "notes: []", """
+      notes:
+        - id: existing
+          text: Keep me
+          target: public.users
+          custom: preserved
+    """.trimIndent(), "notes: [{id: existing, content: Keep me, target: public.users}]").withIndex()) {
+      val yaml = myFixture.addFileToProject("notes$index.erd.yaml",
+        "schema:\n  imports: []\n$notes") as YAMLFile
+      val text = "**Markdown**\nSecond line: \"quoted\" \\ path and አቡጊዳ"
+      val created = mapOf("id" to "new-note", "name" to "My note", "content" to text,
+        "x" to 100, "y" to 200, "width" to 320, "height" to 240, "color" to "#ffca28")
+      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(created)))
+      PsiDocumentManager.getInstance(project).commitAllDocuments()
+      val savedNotes = ErdDataBuilder.build(yaml, project).notes
+      assertTrue("Creation case $index: ${yaml.text}; parsed $savedNotes", savedNotes.any { it.id == "new-note" })
+      val restored = savedNotes.single { it.id == "new-note" }
+      assertEquals("My note", restored.name)
+      assertEquals(text, restored.content)
+      assertEquals(100, restored.horizontal)
+      assertEquals(240, restored.height)
+      val document = FileDocumentManager.getInstance().getDocument(yaml.virtualFile)!!
+      val stamp = document.modificationStamp
+      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(created)))
+      PsiDocumentManager.getInstance(project).commitAllDocuments()
+      assertEquals(stamp, document.modificationStamp)
+      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(
+        created + mapOf("name" to "Renamed", "content" to "Edited"))))
+      PsiDocumentManager.getInstance(project).commitAllDocuments()
+      val editedNotes = ErdDataBuilder.build(yaml, project).notes
+      assertTrue("Edit case $index: ${yaml.text}; parsed $editedNotes", editedNotes.any { it.id == "new-note" })
+      assertEquals("Edited", editedNotes.single { it.id == "new-note" }.content)
+      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(deletedNoteIds = listOf("new-note")))
+      PsiDocumentManager.getInstance(project).commitAllDocuments()
+      assertFalse(ErdDataBuilder.build(yaml, project).notes.any { it.id == "new-note" })
+      if (notes.contains("existing")) {
+        assertEquals("Keep me", ErdDataBuilder.build(yaml, project).notes.single().content)
+        assertTrue(yaml.text.contains("public.users"))
+        if (notes.contains("custom")) assertTrue(yaml.text.contains("custom: preserved"))
+      }
+    }
+  }
+
   fun testColumnIndicatorsKeepArraysChecksIdentityAndGeneratedDistinct() {
     myFixture.addFileToProject("features.sql", """
       CREATE TYPE shared.gender AS ENUM ('unspecified', 'female', 'male', 'a,b', 'a)b', 'it''s');
