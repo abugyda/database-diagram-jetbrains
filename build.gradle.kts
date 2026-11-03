@@ -7,7 +7,7 @@ plugins {
   id("com.github.node-gradle.node") version "7.1.0"
 }
 
-group = "com.puntbyte"
+group = "com.abugyda"
 version = "1.0-SNAPSHOT"
 
 // ---------------------------------------------------------------------------
@@ -28,14 +28,14 @@ require(webProjectDir.exists()) {
     Web project not found at: $webProjectDir
  
     Fix one of:
-      a) Set webProjectDir=<path> in gradle.properties (gitignored, local only)
+      a) Set webProjectDir=<path> in gradle.properties (keep machine-specific paths local)
       b) Export WEB_PROJECT_DIR=<path> in your shell / CI environment
       c) Place the web project as a sibling: ../database-diagram-web
     """.trimIndent()
 }
 
 val webDistDir: File = webProjectDir.resolve("dist")
-val webResourcesDir: File = file("src/main/resources/web")
+val webResourcesDir = layout.buildDirectory.dir("generated/webResources")
 
 
 // ---------------------------------------------------------------------------
@@ -67,6 +67,7 @@ tasks {
 
   named("npmInstall") {
     inputs.file(webProjectDir.resolve("package.json"))
+    inputs.file(webProjectDir.resolve("package-lock.json"))
   }
 
   // 1. Run `npm run build` in the standalone web project.
@@ -75,37 +76,30 @@ tasks {
     args.set(listOf("run", "build"))
 
     inputs.dir(webProjectDir.resolve("src"))
+    inputs.dir(webProjectDir.resolve("public"))
     inputs.file(webProjectDir.resolve("package.json"))
+    inputs.file(webProjectDir.resolve("package-lock.json"))
     inputs.file(webProjectDir.resolve("vite.config.ts"))
     inputs.file(webProjectDir.resolve("index.html"))
+    inputs.files(
+      webProjectDir.resolve("tsconfig.json"),
+      webProjectDir.resolve("tsconfig.app.json"),
+      webProjectDir.resolve("tsconfig.node.json")
+    )
+    inputs.dir(webProjectDir.resolve("tests"))
     outputs.dir(webDistDir)
   }
 
-  // 2. Sync the built bundle into the plugin's resources directory.
-  //
-  // FIX: Using `Sync` instead of `Copy` + `doFirst { deleteRecursively() }`.
-  //
-  // The old approach had:
-  //   val copyWebDist by registering(Copy::class) {
-  //       doFirst { webResourcesDir.deleteRecursively() }   // <-- problem
-  //   }
-  //
-  // `doFirst {}` captures `webResourcesDir` (a Gradle script object / File
-  // local variable) as a lambda closure.  The configuration cache cannot
-  // serialise these script-level references, so it fails with:
-  //   "cannot serialize Gradle script object references"
-  //
-  // `Sync` is a drop-in replacement that automatically removes files in the
-  // destination that no longer exist in the source — exactly what
-  // `deleteRecursively` was doing — without any closure or doFirst block.
+  // Keep generated assets out of src; Sync also removes stale web chunks.
   val copyWebDist by registering(Sync::class) {
     dependsOn(buildWebview)
     from(webDistDir)
-    into(webResourcesDir)
+    into(webResourcesDir.map { it.dir("web") })
   }
 
   processResources {
     dependsOn(copyWebDist)
+    from(webResourcesDir)
   }
 }
 
@@ -131,19 +125,25 @@ dependencies {
     // keep the testFramework declaration here if you need it
     testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
 
-
     // Add JetBrains Database and YAML plugins
     // 1. Add YAML plugin for parsing and updating the .erd.yaml layout file
     bundledPlugin("org.jetbrains.plugins.yaml")
+    bundledPlugin("com.intellij.modules.json")
 
     // 2. Add Database plugin for parsing SQL files (PSI)
     bundledPlugin("com.intellij.database") // SQL PSI comes with this
   }
 
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+  testImplementation("junit:junit:4.13.2")
 }
 
 intellijPlatform {
+  sandboxContainer.set(
+    layout.buildDirectory.dir(
+      providers.gradleProperty("diagramSandbox").orElse("idea-sandbox")
+    )
+  )
   pluginConfiguration {
     ideaVersion { sinceBuild = "252.25557" }
     changeNotes = "Initial version".trimIndent()

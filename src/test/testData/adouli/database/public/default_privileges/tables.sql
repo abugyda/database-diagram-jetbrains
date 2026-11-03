@@ -1,0 +1,23 @@
+--
+-- Name: postgres:TABLES:anon; Type: DEFAULT_PRIVILEGE; Schema: default_privileges; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO anon;
+
+--
+-- Name: postgres:TABLES:authenticated; Type: DEFAULT_PRIVILEGE; Schema: default_privileges; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO authenticated;
+
+--
+-- Name: postgres:TABLES:postgres; Type: DEFAULT_PRIVILEGE; Schema: default_privileges; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO postgres;
+
+--
+-- Name: postgres:TABLES:service_role; Type: DEFAULT_PRIVILEGE; Schema: default_privileges; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO service_role;

@@ -1,14 +1,15 @@
 <!-- Plugin Configuration File -->
 <idea-plugin>
   <!-- Unique identifier of the plugin. It should be FQN, cannot be changed between the plugin versions. -->
-  <id>com.puntbyte.dbd</id>
+  <id>com.abugyda.dbd</id>
 
   <!-- Public plugin name should be written in Title Case.
        Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
   <name>Database Diagram</name>
+  <resource-bundle>messages.DatabaseDiagramBundle</resource-bundle>
 
   <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-  <vendor url="https://www.puntbyte.com">Puntbyte</vendor>
+  <vendor>Abugyda</vendor>
 
   <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
        Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
@@ -29,18 +30,23 @@
        Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
   <extensions defaultExtensionNs="com.intellij">
 
-    <applicationService serviceImplementation="com.puntbyte.dbd.settings.DatabaseDiagramSettings"/>
+    <additionalTextAttributes scheme="Default" file="colorSchemes/DatabaseDiagramDefault.xml"/>
+    <additionalTextAttributes scheme="Darcula" file="colorSchemes/DatabaseDiagramDarcula.xml"/>
+    <colorSettingsPage implementation="com.abugyda.dbd.settings.DatabaseDiagramColorSettingsPage"/>
+
+    <applicationService serviceImplementation="com.abugyda.dbd.settings.DatabaseDiagramSettings"/>
 
     <applicationConfigurable
         parentId="tools"
-        instance="com.puntbyte.dbd.settings.DatabaseDiagramConfigurable"
-        id="com.puntbyte.dbd.settings.DatabaseDiagramConfigurable"
-        displayName="Database Diagram"/>
+        instance="com.abugyda.dbd.settings.DatabaseDiagramConfigurable"
+        id="com.abugyda.dbd.settings.DatabaseDiagramConfigurable"
+        bundle="messages.DatabaseDiagramBundle"
+        key="configurable.database.diagram.display.name"/>
 
-    <fileEditorProvider implementation="com.puntbyte.dbd.editor.SchemaSplitEditorProvider"/>
+    <fileEditorProvider implementation="com.abugyda.dbd.editor.SchemaSplitEditorProvider"/>
 
     <!-- File template group — tells IntelliJ where to find the .ft files -->
-    <fileTemplateGroup implementation="com.puntbyte.dbd.templates.ErdFileTemplateGroup"/>
+    <fileTemplateGroup implementation="com.abugyda.dbd.templates.ErdFileTemplateGroup"/>
 
     <!--
       Internal file templates bundled with the plugin.
@@ -56,22 +62,23 @@
   </extensions>
 
   <actions>
-    <group id="com.puntbyte.dbd.NewFileGroup"
-           text="ERD Diagram"
-           description="Create ERD-related files"
+    <action id="com.abugyda.dbd.ConfigureDiagram"
+            class="com.abugyda.dbd.actions.ConfigureDiagramAction"
+            icon="AllIcons.General.Settings">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+    </action>
+
+    <group id="com.abugyda.dbd.NewFileGroup"
            popup="true"
            icon="AllIcons.FileTypes.Yaml">
 
-      <action id="com.puntbyte.dbd.NewErdYaml"
-              class="com.puntbyte.dbd.actions.NewErdYamlAction"
-              text="ERD Diagram (.erd.yaml)"
-              description="Create a new ERD layout file"
+      <action id="com.abugyda.dbd.NewErdYaml"
+              class="com.abugyda.dbd.actions.NewErdYamlAction"
               icon="AllIcons.FileTypes.Yaml"/>
 
-      <action id="com.puntbyte.dbd.NewSqlSchema"
-              class="com.puntbyte.dbd.actions.NewSqlSchemaAction"
-              text="SQL Schema File (.sql)"
-              description="Create a new SQL schema file"
+      <action id="com.abugyda.dbd.NewSqlSchema"
+              class="com.abugyda.dbd.actions.NewSqlSchemaAction"
               icon="AllIcons.FileTypes.Text"/>
 
       <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>

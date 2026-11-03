@@ -1,0 +1,139 @@
+<list>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_TABLEHEADER">
+    <value>
+      <option name="FOREGROUND" value="ffffff" />
+      <option name="BACKGROUND" value="3b82f6" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_TABLEDESCRIPTION">
+    <value>
+      <option name="FOREGROUND" value="a5adba" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_COLUMNNAME">
+    <value>
+      <option name="FOREGROUND" value="dfe1e5" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_COLUMNDESCRIPTION">
+    <value>
+      <option name="FOREGROUND" value="a5adba" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_COLUMNTYPE">
+    <value>
+      <option name="FOREGROUND" value="a5adba" />
+      <option name="BACKGROUND" value="313338" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_DEFAULTVALUE">
+    <value>
+      <option name="FOREGROUND" value="e9b65b" />
+      <option name="BACKGROUND" value="403421" />
+      <option name="FONT_TYPE" value="2" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_NN">
+    <value>
+      <option name="FOREGROUND" value="a5adba" />
+      <option name="BACKGROUND" value="374151" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_UQ">
+    <value>
+      <option name="FOREGROUND" value="c4b5fd" />
+      <option name="BACKGROUND" value="382b50" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_NOTEHEADER">
+    <value>
+      <option name="FOREGROUND" value="1f2937" />
+      <option name="FONT_TYPE" value="1" />
+      <option name="BACKGROUND" value="fef08a" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_NOTEBODY">
+    <value>
+      <option name="FOREGROUND" value="1f2937" />
+      <option name="FONT_TYPE" value="0" />
+      <option name="BACKGROUND" value="fef08a" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_GROUPLABEL">
+    <value>
+      <option name="FOREGROUND" value="dfe1e5" />
+      <option name="BACKGROUND" value="2b2d30" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_RELATIONLABEL">
+    <value>
+      <option name="FOREGROUND" value="dfe1e5" />
+      <option name="BACKGROUND" value="2b2d30" />
+      <option name="FONT_TYPE" value="0" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_ENM">
+    <value>
+      <option name="FOREGROUND" value="c4b5fd" />
+      <option name="BACKGROUND" value="382b50" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_REC">
+    <value>
+      <option name="FOREGROUND" value="5eead4" />
+      <option name="BACKGROUND" value="153e3b" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_DOM">
+    <value>
+      <option name="FOREGROUND" value="fcd34d" />
+      <option name="BACKGROUND" value="493615" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_RNG">
+    <value>
+      <option name="FOREGROUND" value="67e8f9" />
+      <option name="BACKGROUND" value="16404b" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_ARR">
+    <value>
+      <option name="FOREGROUND" value="93c5fd" />
+      <option name="BACKGROUND" value="233b60" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_CHECK">
+    <value>
+      <option name="FOREGROUND" value="fdba74" />
+      <option name="BACKGROUND" value="4b2e1b" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_IDENTITY">
+    <value>
+      <option name="FOREGROUND" value="a5b4fc" />
+      <option name="BACKGROUND" value="30345a" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+  <option name="ABUGYDA_DATABASE_DIAGRAM_TEXT_GENERATED">
+    <value>
+      <option name="FOREGROUND" value="86efac" />
+      <option name="BACKGROUND" value="1c402b" />
+      <option name="FONT_TYPE" value="1" />
+    </value>
+  </option>
+</list>

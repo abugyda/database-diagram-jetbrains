@@ -1,0 +1,55 @@
+# SQL owns the schema; this file stores diagram presentation only.
+schema:
+  dialect: postgresql
+  imports:
+    - path: ../public.sql
+      schema: public
+    - path: ../../catalog/catalog.sql
+      schema: catalog
+
+tables:
+  public.account_settings: {x: 40, y: 200, width: 340, color: "#6366f1"}
+  public.profile_members: {x: 40, y: 700, width: 340, color: "#8b5cf6"}
+  public.profiles: {x: 520, y: 200, width: 360, color: "#3b82f6"}
+  public.listings: {x: 1020, y: 200, width: 360, color: "#f59e0b"}
+  catalog.categories: {x: 1520, y: 200, width: 360, color: "#10b981"}
+  public.demo_listings: {x: 1020, y: 1500, width: 340, color: "#64748b"}
+  public.pgsupa_smoke_test: {x: 1520, y: 1500, width: 340, color: "#64748b"}
+
+  public.diagram_examples: {x: 40, y: 1500, width: 400, color: "#0097a7"}
+
+notes:
+  - id: overview-guide
+    text: |
+      ## Adouli · Public and Catalog
+      Schema is read from the Public and Catalog SQL entrypoints.
+      **Refresh** re-reads SQL while keeping this diagram's layout.
+      Drag headers to move cards; double-click a table header for details.
+      Supabase-managed auth tables are external: their references appear in column details.
+      Inspect account_settings.gender for enum values.
+      Inspect diagram_examples for records, a nested record, domain, ranges, JSON, arrays, and indexes.
+    x: 40
+    y: -220
+    width: 420
+    height: 280
+    color: "#fef08a"
+
+groups:
+  - id: identity
+    name: Identity and profiles
+    color: "#6366f1"
+    nodeIds: [public.account_settings, public.profiles, public.profile_members]
+  - id: listings-catalog
+    name: Listings and catalog
+    color: "#10b981"
+    nodeIds: [public.listings, catalog.categories]
+
+display:
+  showTableNotes: true
+  showFieldNotes: true
+  tableNoteMaxLines: 2
+  fieldNoteMaxLines: 2
+  tableDensity: compact
+  snapToGrid: false
+  snapAlignment: grid
+  groupMergeTolerance: 32

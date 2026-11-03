@@ -3,10 +3,15 @@
 
 schema:
   imports:
-    - "${NAME}.sql"
+    - path: "${NAME}.sql"
+      schema: public
 
 ## Table visual positions (managed automatically by dragging)
 tables: {}
+
+## Groups, viewport and display preferences are managed by the preview.
+groups: []
+display: {}
 
 ## Optional: override or add relationship routing
 ## relationships:
