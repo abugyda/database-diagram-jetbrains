@@ -39,7 +39,8 @@ internal class SchemaRefreshController(
   private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, parent)
   private var enabled = false
   private var refreshNeeded = false
-  @Volatile private var generation = 0L
+  @Volatile
+  private var generation = 0L
   private var pending: CancellablePromise<*>? = null
 
   init {
@@ -47,15 +48,17 @@ internal class SchemaRefreshController(
       override fun documentChanged(event: DocumentEvent) {
         if (event.document === document) {
           if (canRefresh()) request(300)
-        }
-        else if (FileDocumentManager.getInstance().getFile(event.document)?.extension.equals("sql", true)) request(500)
+        } else if (FileDocumentManager.getInstance()
+            .getFile(event.document)?.extension.equals("sql", true)
+        ) request(500)
       }
     }, parent)
-    project.messageBus.connect(parent).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
-      override fun after(events: List<VFileEvent>) {
-        if (events.any(::affectsSqlSources)) request(500)
-      }
-    })
+    project.messageBus.connect(parent)
+      .subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+        override fun after(events: List<VFileEvent>) {
+          if (events.any(::affectsSqlSources)) request(500)
+        }
+      })
   }
 
   fun refresh() {
@@ -93,10 +96,14 @@ internal class SchemaRefreshController(
           val yaml = PsiDocumentManager.getInstance(project).getPsiFile(document) as? YAMLFile
             ?: error("Cannot read ERD YAML: ${file.name}")
           Result.success(build(yaml))
-        } catch (error: ProcessCanceledException) { throw error }
-        catch (error: Exception) { Result.failure<SchemaPayload>(error) }
+        } catch (error: ProcessCanceledException) {
+          throw error
+        } catch (error: Exception) {
+          Result.failure<SchemaPayload>(error)
+        }
       }).withDocumentsCommitted(project).inSmartMode(project)
-        .expireWith(parent).expireWhen { ticket != generation || !file.isValid || project.isDisposed }
+        .expireWith(parent)
+        .expireWhen { ticket != generation || !file.isValid || project.isDisposed }
         .coalesceBy(this)
         .finishOnUiThread(ModalityState.nonModal()) { result ->
           if (ticket == generation && canRefresh()) {

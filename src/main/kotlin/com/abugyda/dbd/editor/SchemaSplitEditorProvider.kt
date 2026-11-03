@@ -30,11 +30,12 @@ class SchemaSplitEditorProvider : AsyncFileEditorProvider, DumbAware {
         val previewKey = com.abugyda.dbd.configuration.DiagramConfigurationUi.OPEN_IN_PREVIEW
         val openInPreview = file.getUserData(previewKey) == true
         file.putUserData(previewKey, null)
-        val layout = if (openInPreview) TextEditorWithPreview.Layout.SHOW_PREVIEW else when (DatabaseDiagramSettings.instance.state.defaultEditorLayout) {
-          DatabaseDiagramSettings.EditorLayout.EDITOR_ONLY -> TextEditorWithPreview.Layout.SHOW_EDITOR
-          DatabaseDiagramSettings.EditorLayout.PREVIEW_ONLY -> TextEditorWithPreview.Layout.SHOW_PREVIEW
-          DatabaseDiagramSettings.EditorLayout.EDITOR_AND_PREVIEW -> TextEditorWithPreview.Layout.SHOW_EDITOR_AND_PREVIEW
-        }
+        val layout =
+          if (openInPreview) TextEditorWithPreview.Layout.SHOW_PREVIEW else when (DatabaseDiagramSettings.instance.state.defaultEditorLayout) {
+            DatabaseDiagramSettings.EditorLayout.EDITOR_ONLY -> TextEditorWithPreview.Layout.SHOW_EDITOR
+            DatabaseDiagramSettings.EditorLayout.PREVIEW_ONLY -> TextEditorWithPreview.Layout.SHOW_PREVIEW
+            DatabaseDiagramSettings.EditorLayout.EDITOR_AND_PREVIEW -> TextEditorWithPreview.Layout.SHOW_EDITOR_AND_PREVIEW
+          }
 
         return TextEditorWithPreview(textEditor, previewEditor, "ERD Editor", layout)
       }

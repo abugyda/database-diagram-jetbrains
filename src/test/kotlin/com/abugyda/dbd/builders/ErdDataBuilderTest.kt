@@ -9,22 +9,30 @@ import org.jetbrains.yaml.psi.YAMLFile
 
 class ErdDataBuilderTest : BasePlatformTestCase() {
   fun testNotesCanBeCreatedEditedAndDeletedWithoutLosingOtherNotes() {
-    for ((index, notes) in listOf("", "notes: []", """
+    for ((index, notes) in listOf(
+      "", "notes: []", """
       notes:
         - id: existing
           text: Keep me
           target: public.users
           custom: preserved
-    """.trimIndent(), "notes: [{id: existing, content: Keep me, target: public.users}]").withIndex()) {
-      val yaml = myFixture.addFileToProject("notes$index.erd.yaml",
-        "schema:\n  imports: []\n$notes") as YAMLFile
+    """.trimIndent(), "notes: [{id: existing, content: Keep me, target: public.users}]"
+    ).withIndex()) {
+      val yaml = myFixture.addFileToProject(
+        "notes$index.erd.yaml",
+        "schema:\n  imports: []\n$notes"
+      ) as YAMLFile
       val text = "**Markdown**\nSecond line: \"quoted\" \\ path and አቡጊዳ"
-      val created = mapOf("id" to "new-note", "name" to "My note", "content" to text,
-        "x" to 100, "y" to 200, "width" to 320, "height" to 240, "color" to "#ffca28")
+      val created = mapOf(
+        "id" to "new-note", "name" to "My note", "content" to text,
+        "x" to 100, "y" to 200, "width" to 320, "height" to 240, "color" to "#ffca28"
+      )
       ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(created)))
       PsiDocumentManager.getInstance(project).commitAllDocuments()
       val savedNotes = ErdDataBuilder.build(yaml, project).notes
-      assertTrue("Creation case $index: ${yaml.text}; parsed $savedNotes", savedNotes.any { it.id == "new-note" })
+      assertTrue(
+        "Creation case $index: ${yaml.text}; parsed $savedNotes",
+        savedNotes.any { it.id == "new-note" })
       val restored = savedNotes.single { it.id == "new-note" }
       assertEquals("My note", restored.name)
       assertEquals(text, restored.content)
@@ -35,13 +43,24 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
       ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(created)))
       PsiDocumentManager.getInstance(project).commitAllDocuments()
       assertEquals(stamp, document.modificationStamp)
-      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(notes = listOf(
-        created + mapOf("name" to "Renamed", "content" to "Edited"))))
+      ErdYamlUpdater.savePresentation(
+        project, yaml, SavePresentation(
+          notes = listOf(
+            created + mapOf("name" to "Renamed", "content" to "Edited")
+          )
+        )
+      )
       PsiDocumentManager.getInstance(project).commitAllDocuments()
       val editedNotes = ErdDataBuilder.build(yaml, project).notes
-      assertTrue("Edit case $index: ${yaml.text}; parsed $editedNotes", editedNotes.any { it.id == "new-note" })
+      assertTrue(
+        "Edit case $index: ${yaml.text}; parsed $editedNotes",
+        editedNotes.any { it.id == "new-note" })
       assertEquals("Edited", editedNotes.single { it.id == "new-note" }.content)
-      ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(deletedNoteIds = listOf("new-note")))
+      ErdYamlUpdater.savePresentation(
+        project,
+        yaml,
+        SavePresentation(deletedNoteIds = listOf("new-note"))
+      )
       PsiDocumentManager.getInstance(project).commitAllDocuments()
       assertFalse(ErdDataBuilder.build(yaml, project).notes.any { it.id == "new-note" })
       if (notes.contains("existing")) {
@@ -53,7 +72,8 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
   }
 
   fun testColumnIndicatorsKeepArraysChecksIdentityAndGeneratedDistinct() {
-    myFixture.addFileToProject("features.sql", """
+    myFixture.addFileToProject(
+      "features.sql", """
       CREATE TYPE shared.gender AS ENUM ('unspecified', 'female', 'male', 'a,b', 'a)b', 'it''s');
       CREATE TYPE shared.address AS (city text, country text);
       CREATE DOMAIN shared.money AS numeric(12,2) CHECK (VALUE >= 0);
@@ -78,12 +98,15 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
         CONSTRAINT valid_discount CHECK (discount >= 0 AND discount <= quantity * price)
       );
       ALTER TABLE examples ADD CONSTRAINT price_positive CHECK (price >= 0);
-    """.trimIndent())
-    val yaml = myFixture.addFileToProject("features.erd.yaml", """
+    """.trimIndent()
+    )
+    val yaml = myFixture.addFileToProject(
+      "features.erd.yaml", """
       schema:
         dialect: postgresql
         imports: [features.sql]
-    """.trimIndent()) as YAMLFile
+    """.trimIndent()
+    ) as YAMLFile
     val table = ErdDataBuilder.build(yaml, project).tables.single()
     fun field(name: String) = table.fields.single { it.name == name }
     assertEquals("ALWAYS", field("id").identity)
@@ -97,7 +120,10 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
     assertEmpty(field("note").checks)
     assertEmpty(field("length").checks)
     assertEquals("ENUM", field("genders").typeCategory)
-    assertEquals(listOf("unspecified", "female", "male", "a,b", "a)b", "it's"), field("genders").enumValues)
+    assertEquals(
+      listOf("unspecified", "female", "male", "a,b", "a)b", "it's"),
+      field("genders").enumValues
+    )
     assertEquals("RECORD", field("addresses").typeCategory)
     for (name in listOf("genders", "addresses", "tags")) assertTrue(name, field(name).isArray)
     assertFalse(field("amount").isArray)
@@ -111,13 +137,17 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
     assertTrue(table.checks.any { it.name == "valid_discount" && "quantity" in it.columns })
     val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
     val json = mapper.readTree(mapper.writeValueAsString(table))
-    assertEquals("ALWAYS", json["fields"].first { it["name"].asText() == "id" }["identity"].asText())
+    assertEquals(
+      "ALWAYS",
+      json["fields"].first { it["name"].asText() == "id" }["identity"].asText()
+    )
   }
 
   fun testNestedIncludesCompositeKeysAndSeparateCrossSchemaConstraint() {
     myFixture.addFileToProject("database/public/public.sql", "\\i base.sql\n\\i constraints.sql")
     myFixture.addFileToProject("database/public/base.sql", "\\i tables/members.sql")
-    myFixture.addFileToProject("database/public/tables/members.sql", """
+    myFixture.addFileToProject(
+      "database/public/tables/members.sql", """
       --- Members belong to profiles.
       CREATE TABLE members (
         --- Profile owning this membership.
@@ -127,10 +157,18 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
         PRIMARY KEY(profile_id, user_id)
       );
       CREATE INDEX members_user_idx ON members(user_id);
-    """.trimIndent())
-    myFixture.addFileToProject("database/catalog/catalog.sql", "CREATE TABLE catalog.profiles (id uuid PRIMARY KEY);")
-    myFixture.addFileToProject("database/public/constraints.sql", "ALTER TABLE public.members ADD CONSTRAINT members_profile_fk FOREIGN KEY(profile_id) REFERENCES catalog.profiles(id);")
-    val yaml = myFixture.addFileToProject("database/public/diagrams/overview.erd.yaml", """
+    """.trimIndent()
+    )
+    myFixture.addFileToProject(
+      "database/catalog/catalog.sql",
+      "CREATE TABLE catalog.profiles (id uuid PRIMARY KEY);"
+    )
+    myFixture.addFileToProject(
+      "database/public/constraints.sql",
+      "ALTER TABLE public.members ADD CONSTRAINT members_profile_fk FOREIGN KEY(profile_id) REFERENCES catalog.profiles(id);"
+    )
+    val yaml = myFixture.addFileToProject(
+      "database/public/diagrams/overview.erd.yaml", """
       schema:
         dialect: postgresql
         imports:
@@ -143,23 +181,40 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
           x: 100
           y: 200
           width: 300
-    """.trimIndent()) as YAMLFile
+    """.trimIndent()
+    ) as YAMLFile
     val payload = ErdDataBuilder.build(yaml, project)
     assertEquals(2, payload.tables.size)
     val members = payload.tables.single { it.id == "public.members" }
     assertEquals("Members belong to profiles.", members.note)
-    assertEquals("Profile owning this membership.", members.fields.single { it.name == "profile_id" }.note)
-    assertEquals(listOf("profile_id", "user_id"), members.fields.filter { it.isPrimaryKey }.map { it.name })
+    assertEquals(
+      "Profile owning this membership.",
+      members.fields.single { it.name == "profile_id" }.note
+    )
+    assertEquals(
+      listOf("profile_id", "user_id"),
+      members.fields.filter { it.isPrimaryKey }.map { it.name })
     assertTrue(members.indexes.orEmpty().any { it.columns == listOf("user_id") })
     assertEquals(100, members.horizontal)
     val relation = payload.relationships.single()
     assertEquals("public.members", relation.fromTable)
     assertEquals("catalog.profiles", relation.toTable)
     assertEquals(listOf("profile_id"), relation.fromColumns)
-    ErdYamlUpdater.savePresentation(project, yaml, SavePresentation(
-      tables = listOf(mapOf("id" to "public.members", "x" to 120, "y" to 220, "width" to 340)),
-      groups = listOf(mapOf("id" to "g", "name" to "Profiles", "color" to "#123456", "nodeIds" to listOf("public.members", "catalog.profiles"))),
-      viewport = mapOf("x" to 1.0, "y" to 2.0, "zoom" to 0.8), displaySettings = mapOf("snapToGrid" to true)))
+    ErdYamlUpdater.savePresentation(
+      project, yaml, SavePresentation(
+        tables = listOf(mapOf("id" to "public.members", "x" to 120, "y" to 220, "width" to 340)),
+        groups = listOf(
+          mapOf(
+            "id" to "g",
+            "name" to "Profiles",
+            "color" to "#123456",
+            "nodeIds" to listOf("public.members", "catalog.profiles")
+          )
+        ),
+        viewport = mapOf("x" to 1.0, "y" to 2.0, "zoom" to 0.8),
+        displaySettings = mapOf("snapToGrid" to true)
+      )
+    )
     PsiDocumentManager.getInstance(project).commitAllDocuments()
     val restored = ErdDataBuilder.build(yaml, project)
     assertEquals(120, restored.tables.single { it.id == "public.members" }.horizontal)
@@ -178,17 +233,27 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
     val payload = ErdDataBuilder.build(psi, project)
     assertEquals(8, payload.tables.size)
     val members = payload.tables.single { it.id == "public.profile_members" }
-    assertEquals(setOf("profile_id", "user_id"), members.fields.filter { it.isPrimaryKey }.map { it.name }.toSet())
-    val composite = payload.relationships.single { it.fromTable == "public.listings" && it.toTable == "catalog.categories" }
+    assertEquals(
+      setOf("profile_id", "user_id"),
+      members.fields.filter { it.isPrimaryKey }.map { it.name }.toSet()
+    )
+    val composite =
+      payload.relationships.single { it.fromTable == "public.listings" && it.toTable == "catalog.categories" }
     assertEquals(listOf("category_id", "profile_id"), composite.fromColumns)
     assertEquals(listOf("id", "profile_id"), composite.toColumns)
     assertEquals(2, payload.groups.size)
     assertTrue(payload.tables.single { it.id == "public.account_settings" }.fields.any { it.reference?.toSchema == "auth" })
-    val gender = payload.tables.single { it.id == "public.account_settings" }.fields.single { it.name == "gender" }
+    val gender =
+      payload.tables.single { it.id == "public.account_settings" }.fields.single { it.name == "gender" }
     assertEquals("ENUM", gender.typeCategory)
     assertEquals(listOf("unspecified", "male", "female", "other"), gender.enumValues)
     val examples = payload.tables.single { it.id == "public.diagram_examples" }
-    for ((name, category) in mapOf("shipping_address" to "RECORD", "contact" to "RECORD", "amount" to "DOMAIN", "budget" to "RANGE")) {
+    for ((name, category) in mapOf(
+      "shipping_address" to "RECORD",
+      "contact" to "RECORD",
+      "amount" to "DOMAIN",
+      "budget" to "RANGE"
+    )) {
       assertEquals(name, category, examples.fields.single { it.name == name }.typeCategory)
     }
     assertTrue(examples.indexes.orEmpty().any { it.raw.orEmpty().contains("USING gin") })
@@ -198,16 +263,29 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
   }
 
   fun testMalformedYamlAndBridgeContract() {
-    val invalid = myFixture.addFileToProject("invalid.erd.yaml", "schema: [unterminated") as YAMLFile
-    try { ErdDataBuilder.build(invalid, project); fail("Invalid YAML should fail") }
-    catch (error: IllegalStateException) { assertTrue(error.message.orEmpty().contains("Invalid diagram YAML")) }
+    val invalid =
+      myFixture.addFileToProject("invalid.erd.yaml", "schema: [unterminated") as YAMLFile
+    try {
+      ErdDataBuilder.build(invalid, project); fail("Invalid YAML should fail")
+    } catch (error: IllegalStateException) {
+      assertTrue(error.message.orEmpty().contains("Invalid diagram YAML"))
+    }
     val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
     val settings = com.abugyda.dbd.webview.WebviewBridge.GlobalSettings("Curve", true, 20)
-    val json = mapper.readTree(mapper.writeValueAsString(com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(settings)))
+    val json = mapper.readTree(
+      mapper.writeValueAsString(
+        com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(settings)
+      )
+    )
     assertEquals("UPDATE_GLOBAL_SETTINGS", json["type"].asText())
     assertEquals(20, json["settings"]["gridSize"].asInt())
-    assertTrue(mapper.readValue("{\"type\":\"REFRESH_SCHEMA\"}", com.abugyda.dbd.webview.WebviewBridge.Client::class.java)
-      is com.abugyda.dbd.webview.WebviewBridge.Client.RefreshSchema)
+    assertTrue(
+      mapper.readValue(
+        "{\"type\":\"REFRESH_SCHEMA\"}",
+        com.abugyda.dbd.webview.WebviewBridge.Client::class.java
+      )
+          is com.abugyda.dbd.webview.WebviewBridge.Client.RefreshSchema
+    )
   }
 
   fun testDiagramFontSizePersistsAndIsIncludedInGlobalSettings() {
@@ -220,8 +298,13 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
     settings.loadState(settings.state.copy(diagramFontSize = 0))
     assertEquals(10, settings.state.diagramFontSize)
     val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-    val global = com.abugyda.dbd.webview.WebviewBridge.GlobalSettings("Curve", true, 16, fontSize = 18)
-    val json = mapper.readTree(mapper.writeValueAsString(com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(global)))
+    val global =
+      com.abugyda.dbd.webview.WebviewBridge.GlobalSettings("Curve", true, 16, fontSize = 18)
+    val json = mapper.readTree(
+      mapper.writeValueAsString(
+        com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(global)
+      )
+    )
     assertEquals(18, json["settings"]["fontSize"].asInt())
   }
 
@@ -243,8 +326,13 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
     val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
     val settings = com.abugyda.dbd.webview.WebviewBridge.GlobalSettings(
       lineStyle = "Curve", showGrid = false, gridSize = 16,
-      snapToGrid = true, snapAlignment = "midpoint", overrideDiagramAlignment = true)
-    val json = mapper.readTree(mapper.writeValueAsString(com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(settings)))
+      snapToGrid = true, snapAlignment = "midpoint", overrideDiagramAlignment = true
+    )
+    val json = mapper.readTree(
+      mapper.writeValueAsString(
+        com.abugyda.dbd.webview.WebviewBridge.Server.UpdateGlobalSettings(settings)
+      )
+    )
     assertTrue(json["settings"]["overrideDiagramAlignment"].asBoolean())
     assertFalse(json["settings"]["showGrid"].asBoolean())
     assertTrue(json["settings"]["snapToGrid"].asBoolean())
@@ -252,26 +340,45 @@ class ErdDataBuilderTest : BasePlatformTestCase() {
   }
 
   fun testRepeatedPresentationSaveDoesNotRewriteUnchangedYaml() {
-    val yaml = myFixture.addFileToProject("unchanged.erd.yaml", "schema:\n  imports: []\ntables: {}") as YAMLFile
+    val yaml = myFixture.addFileToProject(
+      "unchanged.erd.yaml",
+      "schema:\n  imports: []\ntables: {}"
+    ) as YAMLFile
     val presentation = SavePresentation(
       tables = listOf(mapOf("id" to "public.items", "x" to 100, "y" to 200, "width" to 300)),
-      displaySettings = mapOf("showGrid" to true), viewport = mapOf("x" to 0.0, "y" to 0.0, "zoom" to 1.0))
+      displaySettings = mapOf("showGrid" to true),
+      viewport = mapOf("x" to 0.0, "y" to 0.0, "zoom" to 1.0)
+    )
     ErdYamlUpdater.savePresentation(project, yaml, presentation)
     PsiDocumentManager.getInstance(project).commitAllDocuments()
     val document = FileDocumentManager.getInstance().getDocument(yaml.virtualFile)!!
     val stamp = document.modificationStamp
     ErdYamlUpdater.savePresentation(project, yaml, presentation)
     PsiDocumentManager.getInstance(project).commitAllDocuments()
-    assertEquals("Unchanged snapshots should not generate document changes", stamp, document.modificationStamp)
+    assertEquals(
+      "Unchanged snapshots should not generate document changes",
+      stamp,
+      document.modificationStamp
+    )
   }
 
   fun testMissingAndCircularIncludesProduceActionableErrors() {
-    val missing = myFixture.addFileToProject("missing.erd.yaml", "schema:\n  imports: [missing.sql]") as YAMLFile
-    try { SqlSourceLoader.load(missing, project); fail("Missing import should fail") }
-    catch (error: IllegalStateException) { assertTrue(error.message.orEmpty().contains("missing.sql")) }
+    val missing = myFixture.addFileToProject(
+      "missing.erd.yaml",
+      "schema:\n  imports: [missing.sql]"
+    ) as YAMLFile
+    try {
+      SqlSourceLoader.load(missing, project); fail("Missing import should fail")
+    } catch (error: IllegalStateException) {
+      assertTrue(error.message.orEmpty().contains("missing.sql"))
+    }
     myFixture.addFileToProject("loop.sql", "\\i loop.sql")
-    val circular = myFixture.addFileToProject("loop.erd.yaml", "schema:\n  imports: [loop.sql]") as YAMLFile
-    try { SqlSourceLoader.load(circular, project); fail("Circular include should fail") }
-    catch (error: IllegalStateException) { assertTrue(error.message.orEmpty().contains("Circular")) }
+    val circular =
+      myFixture.addFileToProject("loop.erd.yaml", "schema:\n  imports: [loop.sql]") as YAMLFile
+    try {
+      SqlSourceLoader.load(circular, project); fail("Circular include should fail")
+    } catch (error: IllegalStateException) {
+      assertTrue(error.message.orEmpty().contains("Circular"))
+    }
   }
 }

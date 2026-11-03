@@ -10,6 +10,8 @@ object DiagramFonts {
     "semanticNoteHeader" to "Overview note headers", "details" to "Details view text",
     "relationLabel" to "Relationship labels"
   )
+
   fun normalize(values: Map<String, Int>): MutableMap<String, Int> = values
-    .filter { (key, value) -> key in roles && value > 0 }.mapValues { it.value.coerceIn(8, 48) }.toMutableMap()
+    .filter { (key, value) -> key in roles && value > 0 }.mapValues { it.value.coerceIn(8, 48) }
+    .toMutableMap()
 }

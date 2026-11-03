@@ -58,8 +58,12 @@ class DiagramConfigurationDialog(
   private val nameField = JTextField("diagram", 24)
   private val sourceModel = SqlSourcesTableModel(initial.imports)
   private val sourceTable = JBTable(sourceModel)
-  private val dialect = JComboBox(arrayOf("Use IDE mapping", "PostgreSQL") +
-    if (initial.dialect != null && initial.dialect !in setOf("postgres", "postgresql")) arrayOf(initial.dialect) else emptyArray())
+  private val dialect = JComboBox(
+    arrayOf("Use IDE mapping", "PostgreSQL") +
+        if (initial.dialect != null && initial.dialect !in setOf("postgres", "postgresql")) arrayOf(
+          initial.dialect
+        ) else emptyArray()
+  )
   private val defaultSchema = JTextField(initial.defaultSchema, 16)
   private val mode = JComboBox(arrayOf("All tables except unchecked", "Only checked tables"))
   private val splitter = OnePixelSplitter(false, "DatabaseDiagram.Configure.Split", .45f)
@@ -71,17 +75,30 @@ class DiagramConfigurationDialog(
   private val preview = JButton("Refresh")
   private val choices = includeTableIds.associateWith { true }.toMutableMap()
   private var catalog: SchemaPayload? = null
-  @Volatile private var revision = 0
+  @Volatile
+  private var revision = 0
   private var dirty = true
   private var loading = false
   private var discoveryError: String? = null
   private var rebuilding = false
-  private val tree = object : CheckboxTree(object : CheckboxTree.CheckboxTreeCellRenderer(true) {
-    override fun customizeRenderer(tree: JTree, value: Any, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean) {
-      val item = (value as CheckedTreeNode).userObject
-      textRenderer.append(if (item is DbTable) item.name else item.toString())
-    }
-  }, CheckedTreeNode("Tables"), com.intellij.ui.CheckboxTreeBase.CheckPolicy(true, true, true, true, true)) {
+  private val tree = object : CheckboxTree(
+    object : CheckboxTree.CheckboxTreeCellRenderer(true) {
+      override fun customizeRenderer(
+        tree: JTree,
+        value: Any,
+        selected: Boolean,
+        expanded: Boolean,
+        leaf: Boolean,
+        row: Int,
+        hasFocus: Boolean
+      ) {
+        val item = (value as CheckedTreeNode).userObject
+        textRenderer.append(if (item is DbTable) item.name else item.toString())
+      }
+    },
+    CheckedTreeNode("Tables"),
+    com.intellij.ui.CheckboxTreeBase.CheckPolicy(true, true, true, true, true)
+  ) {
     override fun onNodeStateChanged(node: CheckedTreeNode?) {
       if (node == null) return
       if (!rebuilding) {
@@ -91,16 +108,24 @@ class DiagramConfigurationDialog(
     }
   }
 
-  internal val setupPanel: JComponent by lazy { JPanel(BorderLayout(0, JBUI.scale(10))).apply {
-    preferredSize = Dimension(JBUI.scale(1080), JBUI.scale(600))
-    if (creating) add(JPanel(FlowLayout(FlowLayout.LEADING)).apply { add(JBLabel("Diagram name:")); add(nameField) }, BorderLayout.NORTH)
-    add(splitter, BorderLayout.CENTER)
-  } }
+  internal val setupPanel: JComponent by lazy {
+    JPanel(BorderLayout(0, JBUI.scale(10))).apply {
+      preferredSize = Dimension(JBUI.scale(1080), JBUI.scale(600))
+      if (creating) add(JPanel(FlowLayout(FlowLayout.LEADING)).apply {
+        add(JBLabel("Diagram name:")); add(
+        nameField
+      )
+      }, BorderLayout.NORTH)
+      add(splitter, BorderLayout.CENTER)
+    }
+  }
 
   init {
     title = if (creating) "New ERD Diagram" else "Configure Diagram"
     setOKButtonText(if (creating) "Create diagram" else "Apply")
-    dialect.selectedIndex = when (initial.dialect) { null -> 0; "postgres", "postgresql" -> 1; else -> 2 }
+    dialect.selectedIndex = when (initial.dialect) {
+      null -> 0; "postgres", "postgresql" -> 1; else -> 2
+    }
     mode.selectedIndex = if (initial.tableFilter.mode == "include") 1 else 0
     tree.isRootVisible = false
     tree.showsRootHandles = true
@@ -110,13 +135,21 @@ class DiagramConfigurationDialog(
     sourceTable.columnModel.getColumn(2).apply { preferredWidth = 85; maxWidth = JBUI.scale(100) }
     val checkboxRenderer = sourceTable.getDefaultRenderer(java.lang.Boolean::class.java)
     val emptyRenderer = DefaultTableCellRenderer()
-    sourceTable.columnModel.getColumn(2).cellRenderer = javax.swing.table.TableCellRenderer { table, value, selected, focus, row, column ->
-      if (sourceModel.sourceAt(table.convertRowIndexToModel(row)).folder)
-        checkboxRenderer.getTableCellRendererComponent(table, value, selected, focus, row, column)
-      else emptyRenderer.getTableCellRendererComponent(table, "", selected, focus, row, column)
-    }
+    sourceTable.columnModel.getColumn(2).cellRenderer =
+      javax.swing.table.TableCellRenderer { table, value, selected, focus, row, column ->
+        if (sourceModel.sourceAt(table.convertRowIndexToModel(row)).folder)
+          checkboxRenderer.getTableCellRendererComponent(table, value, selected, focus, row, column)
+        else emptyRenderer.getTableCellRendererComponent(table, "", selected, focus, row, column)
+      }
     sourceTable.columnModel.getColumn(0).cellRenderer = object : DefaultTableCellRenderer() {
-      override fun getTableCellRendererComponent(table: JTable, value: Any?, selected: Boolean, focus: Boolean, row: Int, column: Int): java.awt.Component {
+      override fun getTableCellRendererComponent(
+        table: JTable,
+        value: Any?,
+        selected: Boolean,
+        focus: Boolean,
+        row: Int,
+        column: Int
+      ): java.awt.Component {
         super.getTableCellRendererComponent(table, value, selected, focus, row, column)
         val source = sourceModel.sourceAt(table.convertRowIndexToModel(row))
         icon = if (source.folder) AllIcons.Nodes.Folder else AllIcons.FileTypes.Text
@@ -147,32 +180,43 @@ class DiagramConfigurationDialog(
         }
       }
     })
-    project.messageBus.connect(disposable).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
-      override fun after(events: List<VFileEvent>) {
-        if (events.any(::affectsSqlSources)) scheduleSourceRefresh()
-      }
-    })
+    project.messageBus.connect(disposable)
+      .subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+        override fun after(events: List<VFileEvent>) {
+          if (events.any(::affectsSqlSources)) scheduleSourceRefresh()
+        }
+      })
     EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
       override fun documentChanged(event: com.intellij.openapi.editor.event.DocumentEvent) {
-        if (FileDocumentManager.getInstance().getFile(event.document)?.extension.equals("sql", true)) scheduleSourceRefresh()
+        if (FileDocumentManager.getInstance().getFile(event.document)?.extension.equals(
+            "sql",
+            true
+          )
+        ) scheduleSourceRefresh()
       }
     }, disposable)
   }
 
-  val fileName: String get() = nameField.text.trim().let { if (it.endsWith(".erd.yaml", true)) it else "$it.erd.yaml" }
+  val fileName: String
+    get() = nameField.text.trim().let { if (it.endsWith(".erd.yaml", true)) it else "$it.erd.yaml" }
 
   private fun sourceConfig(): DiagramConfiguration {
     if (sourceTable.isEditing) sourceTable.cellEditor.stopCellEditing()
     val imports = sourceModel.imports()
-    val selectedDialect = when (dialect.selectedIndex) { 0 -> null; 1 -> "postgresql"; else -> initial.dialect }
+    val selectedDialect = when (dialect.selectedIndex) {
+      0 -> null; 1 -> "postgresql"; else -> initial.dialect
+    }
     return DiagramConfiguration(imports, selectedDialect, defaultSchema.text.trim())
   }
 
   fun configuration(): DiagramConfiguration {
     val ids = catalog?.tables.orEmpty().map { it.id }.toSet()
     val filterMode = if (mode.selectedIndex == 0) "exclude" else "include"
-    val savedUnknown = if (filterMode == initial.tableFilter.mode) initial.tableFilter.tables - ids else emptySet()
-    val selected = ids.filter { id -> if (filterMode == "include") choices[id] == true else choices[id] != true }.toSet()
+    val savedUnknown =
+      if (filterMode == initial.tableFilter.mode) initial.tableFilter.tables - ids else emptySet()
+    val selected =
+      ids.filter { id -> if (filterMode == "include") choices[id] == true else choices[id] != true }
+        .toSet()
     return sourceConfig().copy(tableFilter = TableFilter(filterMode, selected + savedUnknown))
   }
 
@@ -192,7 +236,8 @@ class DiagramConfigurationDialog(
           toolTipText = "Remove selected sources"
           addActionListener {
             if (sourceTable.isEditing) sourceTable.cellEditor.stopCellEditing()
-            sourceTable.selectedRows.map { sourceTable.convertRowIndexToModel(it) }.sortedDescending().forEach(sourceModel::remove)
+            sourceTable.selectedRows.map { sourceTable.convertRowIndexToModel(it) }
+              .sortedDescending().forEach(sourceModel::remove)
           }
         })
       }, BorderLayout.SOUTH)
@@ -227,13 +272,17 @@ class DiagramConfigurationDialog(
       add(JPanel(FlowLayout(FlowLayout.LEADING)).apply {
         add(JButton("Select shown").apply { addActionListener { selectShown(true) } })
         add(JButton("Clear shown").apply { addActionListener { selectShown(false) } })
-        add(JButton("Include related tables").apply { addActionListener {
-          val selected = choices.filterValues { it }.keys
-          catalog?.relationships.orEmpty().forEach { rel ->
-            if (rel.fromTable in selected || rel.toTable in selected) { choices[rel.fromTable] = true; choices[rel.toTable] = true }
+        add(JButton("Include related tables").apply {
+          addActionListener {
+            val selected = choices.filterValues { it }.keys
+            catalog?.relationships.orEmpty().forEach { rel ->
+              if (rel.fromTable in selected || rel.toTable in selected) {
+                choices[rel.fromTable] = true; choices[rel.toTable] = true
+              }
+            }
+            rebuildTree()
           }
-          rebuildTree()
-        } })
+        })
       }, BorderLayout.NORTH)
       add(count, BorderLayout.SOUTH)
     }, BorderLayout.SOUTH)
@@ -249,7 +298,8 @@ class DiagramConfigurationDialog(
     FileChooser.chooseFiles(descriptor, project, directory) { files ->
       files.forEach { file ->
         val path = VfsUtilCore.getRelativePath(file, directory, '/')
-          ?: com.intellij.openapi.util.io.FileUtil.getRelativePath(directory.path, file.path, '/') ?: file.path
+          ?: com.intellij.openapi.util.io.FileUtil.getRelativePath(directory.path, file.path, '/')
+          ?: file.path
         sourceModel.add(SqlImport(path.ifEmpty { "." }, folder = folder))
       }
     }
@@ -287,8 +337,12 @@ class DiagramConfigurationDialog(
   private fun discover() {
     refreshAlarm.cancelAllRequests()
     val config = sourceConfig()
-    if (config.imports.isEmpty()) { status.text = "Add at least one SQL source."; return }
-    if (config.defaultSchema.isBlank()) { status.text = "Enter a default schema name."; return }
+    if (config.imports.isEmpty()) {
+      status.text = "Add at least one SQL source."; return
+    }
+    if (config.defaultSchema.isBlank()) {
+      status.text = "Enter a default schema name."; return
+    }
     val ticket = ++revision
     pending?.cancel()
     loading = true
@@ -301,8 +355,11 @@ class DiagramConfigurationDialog(
         val sources = SqlSourceLoader.load(directory, config, project)
         val yaml = YAMLElementGenerator.getInstance(project).createDummyYamlWithText(config.yaml())
         Result.success(ErdDataBuilder.build(yaml, project, sources))
-      } catch (error: ProcessCanceledException) { throw error }
-      catch (error: Exception) { Result.failure<SchemaPayload>(error) }
+      } catch (error: ProcessCanceledException) {
+        throw error
+      } catch (error: Exception) {
+        Result.failure<SchemaPayload>(error)
+      }
     }).withDocumentsCommitted(project).inSmartMode(project).expireWith(disposable)
       .expireWhen { ticket != revision || project.isDisposed }.coalesceBy(this)
       .finishOnUiThread(ModalityState.stateForComponent(setupPanel)) { result ->
@@ -321,7 +378,8 @@ class DiagramConfigurationDialog(
             dirty = false
             discoveryError = null
             tree.isEnabled = true
-            status.text = "${payload.sourceCount ?: 0} SQL files · ${payload.tables.size} tables · ${payload.relationships.size} relationships"
+            status.text =
+              "${payload.sourceCount ?: 0} SQL files · ${payload.tables.size} tables · ${payload.relationships.size} relationships"
             status.toolTipText = "${status.text}. Checked tables will appear in the diagram."
             rebuildTree()
             setOKActionEnabled(true)
@@ -337,7 +395,8 @@ class DiagramConfigurationDialog(
       }.submit(AppExecutorUtil.getAppExecutorService())
   }
 
-  private fun matchingTables() = catalog?.tables.orEmpty().filter { it.id.contains(search.text.trim(), ignoreCase = true) }
+  private fun matchingTables() =
+    catalog?.tables.orEmpty().filter { it.id.contains(search.text.trim(), ignoreCase = true) }
 
   private fun selectShown(checked: Boolean) {
     matchingTables().forEach { choices[it.id] = checked }
@@ -350,14 +409,20 @@ class DiagramConfigurationDialog(
       val root = CheckedTreeNode("Tables")
       matchingTables().groupBy { it.schema }.toSortedMap().forEach { (schema, tables) ->
         val parent = CheckedTreeNode(schema)
-        tables.sortedBy { it.name }.forEach { table -> parent.add(CheckedTreeNode(table).apply { isChecked = choices[table.id] == true }) }
+        tables.sortedBy { it.name }.forEach { table ->
+          parent.add(CheckedTreeNode(table).apply {
+            isChecked = choices[table.id] == true
+          })
+        }
         parent.isChecked = tables.all { choices[it.id] == true }
         root.add(parent)
       }
       tree.model = DefaultTreeModel(root)
       var row = 0
       while (row < tree.rowCount) tree.expandRow(row++)
-    } finally { rebuilding = false }
+    } finally {
+      rebuilding = false
+    }
     updateCount()
   }
 
@@ -372,10 +437,18 @@ class DiagramConfigurationDialog(
     if (creating) {
       if (nameField.text.isBlank() || nameField.text.trim() == ".erd.yaml" || fileName.any { it in "\\/:*?\"<>|" })
         return ValidationInfo("Enter a valid diagram file name.", nameField)
-      if (directory.findChild(fileName) != null) return ValidationInfo("A file named $fileName already exists.", nameField)
+      if (directory.findChild(fileName) != null) return ValidationInfo(
+        "A file named $fileName already exists.",
+        nameField
+      )
     }
-    if (sourceConfig().imports.isEmpty()) return ValidationInfo("Add at least one SQL source.", sourceTable)
-    if (dirty || catalog == null) return ValidationInfo(discoveryError ?: "Wait for table discovery or click Refresh.", preview)
+    if (sourceConfig().imports.isEmpty()) return ValidationInfo(
+      "Add at least one SQL source.",
+      sourceTable
+    )
+    if (dirty || catalog == null) return ValidationInfo(
+      discoveryError ?: "Wait for table discovery or click Refresh.", preview
+    )
     return null
   }
 }

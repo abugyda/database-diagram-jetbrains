@@ -32,8 +32,10 @@ class NewErdYamlActionTest : BasePlatformTestCase() {
     val directory = file.containingDirectory
     val action = NewErdYamlAction()
     for (context in listOf(
-      SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project).add(CommonDataKeys.PSI_ELEMENT, directory).build(),
-      SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project).add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build()
+      SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
+        .add(CommonDataKeys.PSI_ELEMENT, directory).build(),
+      SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
+        .add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build()
     )) {
       val event = event(action, context)
       action.update(event)
@@ -44,14 +46,22 @@ class NewErdYamlActionTest : BasePlatformTestCase() {
       override fun getDirectories() = arrayOf(directory)
       override fun getOrChooseDirectory(): PsiDirectory? = null
     }
-    val cancelled = event(action, SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
-      .add(LangDataKeys.IDE_VIEW, cancelledView).add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build())
+    val cancelled = event(
+      action, SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
+        .add(LangDataKeys.IDE_VIEW, cancelledView)
+        .add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build()
+    )
     assertNull(action.targetDirectory(cancelled))
-    val noFolder = event(action, SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
-      .add(CommonDataKeys.VIRTUAL_FILE, file.virtualFile).build())
+    val noFolder = event(
+      action, SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
+        .add(CommonDataKeys.VIRTUAL_FILE, file.virtualFile).build()
+    )
     action.update(noFolder)
     assertFalse(noFolder.presentation.isEnabledAndVisible)
-    val noProject = event(action, SimpleDataContext.builder().add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build())
+    val noProject = event(
+      action,
+      SimpleDataContext.builder().add(CommonDataKeys.VIRTUAL_FILE, directory.virtualFile).build()
+    )
     action.update(noProject)
     assertFalse(noProject.presentation.isEnabledAndVisible)
   }

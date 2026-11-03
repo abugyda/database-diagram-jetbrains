@@ -114,7 +114,12 @@ class WebviewPanel(
     }
 
     val browser = JBCefBrowser.createBuilder()
-      .setWindowlessFramerate(com.abugyda.dbd.settings.DatabaseDiagramSettings.instance.state.targetFrameRate.coerceIn(30, 60))
+      .setWindowlessFramerate(
+        com.abugyda.dbd.settings.DatabaseDiagramSettings.instance.state.targetFrameRate.coerceIn(
+          30,
+          60
+        )
+      )
       .setEnableOpenDevToolsMenuItem(true)
       .build()
 
@@ -264,8 +269,13 @@ class WebviewPanel(
   fun showSchemaError(message: String) = executeJs(WebviewBridge.Server.SchemaError(message))
 
   fun updateTheme(theme: String, colors: Map<String, String> = emptyMap()) =
-    executeJs(WebviewBridge.Server.UpdateTheme(theme, colors, com.abugyda.dbd.settings.DiagramColors.textStyles(
-      com.intellij.openapi.editor.colors.EditorColorsManager.getInstance().globalScheme)))
+    executeJs(
+      WebviewBridge.Server.UpdateTheme(
+        theme, colors, com.abugyda.dbd.settings.DiagramColors.textStyles(
+          com.intellij.openapi.editor.colors.EditorColorsManager.getInstance().globalScheme
+        )
+      )
+    )
 
   fun updateGlobalSettings(
     lineStyle: String, showGrid: Boolean, gridSize: Int,

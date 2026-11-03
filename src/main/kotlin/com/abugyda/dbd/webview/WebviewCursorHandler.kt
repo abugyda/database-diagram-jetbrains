@@ -19,11 +19,13 @@ class WebviewCursorHandler(
   fun onCssCursorChange(name: String?) {
     SwingUtilities.invokeLater {
       if (isActive()) {
-        val cursor = name?.let { when (it) {
-          "grab" -> PanCursors.get(false)
-          "grabbing" -> PanCursors.get(true)
-          else -> Cursor.getPredefinedCursor(cssCursorType(it))
-        } }
+        val cursor = name?.let {
+          when (it) {
+            "grab" -> PanCursors.get(false)
+            "grabbing" -> PanCursors.get(true)
+            else -> Cursor.getPredefinedCursor(cssCursorType(it))
+          }
+        }
         targets().distinct().forEach { applyCursor(it, cursor ?: Cursor.getDefaultCursor()) }
         cursorPane?.setCursor(null, this)
         cursorPane = if (cursor == null) null else glassPane()

@@ -54,7 +54,11 @@ object ErdDataBuilder {
   private val CREATE_DOMAIN_REGEX =
     Regex("""CREATE\s+DOMAIN\s+$TYPE_NAME\s+AS\s+\w""", setOf(RegexOption.IGNORE_CASE))
 
-  fun build(yamlFile: YAMLFile, project: Project, sourcesOverride: List<SqlSourceLoader.Source>? = null): SchemaPayload {
+  fun build(
+    yamlFile: YAMLFile,
+    project: Project,
+    sourcesOverride: List<SqlSourceLoader.Source>? = null
+  ): SchemaPayload {
     check(
       PsiTreeUtil.findChildOfType(
         yamlFile,
@@ -111,11 +115,13 @@ object ErdDataBuilder {
         CREATE_DOMAIN_REGEX to "DOMAIN",
         CREATE_BASE_REGEX to "BASE"
       )) {
-        pattern.findAll(psi.text).forEach { customTypes[tableId(it.groupValues[1], schema)] = category }
+        pattern.findAll(psi.text)
+          .forEach { customTypes[tableId(it.groupValues[1], schema)] = category }
       }
       CREATE_ENUM_REGEX.findAll(psi.text).forEach { m ->
         enums[tableId(m.groupValues[1], schema)] =
-          Regex("""'((?:''|[^'])*)'""").findAll(m.groupValues[2]).map { it.groupValues[1].replace("''", "'") }.toList()
+          Regex("""'((?:''|[^'])*)'""").findAll(m.groupValues[2])
+            .map { it.groupValues[1].replace("''", "'") }.toList()
       }
       for (key in PsiTreeUtil.findChildrenOfType(psi, SqlTableKeyDefinition::class.java)) {
         val id = owner(key, schema) ?: continue
@@ -133,14 +139,16 @@ object ErdDataBuilder {
       for (constraint in PsiTreeUtil.findChildrenOfType(psi, SqlConstraintDefinition::class.java)) {
         if (constraint.constraintType != SqlConstraintDefinition.Type.CHECK) continue
         val id = owner(constraint, schema) ?: continue
-        val expression = constraint.getConstraintParameter(SqlConstraintDefinition.EXPRESSION) ?: continue
+        val expression =
+          constraint.getConstraintParameter(SqlConstraintDefinition.EXPRESSION) ?: continue
         val references = (listOfNotNull(expression as? SqlReferenceExpression) +
-          PsiTreeUtil.findChildrenOfType(expression, SqlReferenceExpression::class.java))
+            PsiTreeUtil.findChildrenOfType(expression, SqlReferenceExpression::class.java))
           .filter { it.referenceElementType.targetKind == com.intellij.database.model.ObjectKind.COLUMN }
           .mapNotNull { it.name }.toMutableList()
         val column = PsiTreeUtil.getParentOfType(constraint, SqlColumnDefinition::class.java)
         column?.name?.let { references.add(it) }
-        checks.getOrPut(id) { mutableListOf() }.add(DbCheck(constraint.name, expression.text, references.distinct()))
+        checks.getOrPut(id) { mutableListOf() }
+          .add(DbCheck(constraint.name, expression.text, references.distinct()))
       }
     }
     for ((psi, schema) in sources) {
@@ -171,7 +179,10 @@ object ErdDataBuilder {
             val values = enums[tableId(elementType, tableSchema)]
             val generatedClause = col.generatedClause?.text
             // Identity is a separate direct PSI clause, not getGeneratedClause().
-            val identityPattern = Regex("""^GENERATED\s+(ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b""", RegexOption.IGNORE_CASE)
+            val identityPattern = Regex(
+              """^GENERATED\s+(ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b""",
+              RegexOption.IGNORE_CASE
+            )
             val identity = col.children.firstNotNullOfOrNull { child ->
               identityPattern.find(child.text)?.groupValues?.get(1)
             }?.uppercase()?.replace(Regex("""\s+"""), " ")
@@ -193,7 +204,15 @@ object ErdDataBuilder {
                 elementType,
                 tableSchema
               )]
-                ?: if (elementType.substringBefore('(').lowercase() in setOf("int4range", "int8range", "numrange", "tsrange", "tstzrange", "daterange")) "RANGE"
+                ?: if (elementType.substringBefore('(').lowercase() in setOf(
+                    "int4range",
+                    "int8range",
+                    "numrange",
+                    "tsrange",
+                    "tstzrange",
+                    "daterange"
+                  )
+                ) "RANGE"
                 else if (elementType.substringBefore('(')
                     .lowercase() !in KNOWN_BUILTIN_TYPES
                 ) "TYPE" else null
@@ -302,8 +321,10 @@ object ErdDataBuilder {
       table.copy(hiddenRelatedTables = hidden)
     }
     return SchemaPayload(
-      tables = visibleTables, relationships = rels.filter { it.fromTable in includedIds && it.toTable in includedIds },
-      projectSettings = DbProject(), notes = parseYamlNotes(root),
+      tables = visibleTables,
+      relationships = rels.filter { it.fromTable in includedIds && it.toTable in includedIds },
+      projectSettings = DbProject(),
+      notes = parseYamlNotes(root),
       groups = (readValue(root.getKeyValueByKey("groups")?.value) as? List<*>)?.mapNotNull { item ->
         (item as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }
       } ?: emptyList(),

@@ -14,10 +14,18 @@ object SqlSourceLoader {
   private val include = Regex("""(?m)^\s*\\(?:i|ir)\s+(?:'([^']+)'|"([^"]+)"|([^\s;]+))\s*;?\s*$""")
 
   fun load(yaml: YAMLFile, project: Project): List<Source> {
-    return load(yaml.virtualFile.parent, com.abugyda.dbd.configuration.DiagramConfiguration.read(yaml), project)
+    return load(
+      yaml.virtualFile.parent,
+      com.abugyda.dbd.configuration.DiagramConfiguration.read(yaml),
+      project
+    )
   }
 
-  fun load(directory: VirtualFile, config: com.abugyda.dbd.configuration.DiagramConfiguration, project: Project): List<Source> {
+  fun load(
+    directory: VirtualFile,
+    config: com.abugyda.dbd.configuration.DiagramConfiguration,
+    project: Project
+  ): List<Source> {
     val dialectName = config.dialect?.lowercase()
     val dialect = when (dialectName) {
       null -> null
@@ -50,6 +58,7 @@ object SqlSourceLoader {
       }
       visiting.remove(key)
     }
+
     val fileIndex = com.intellij.openapi.roots.ProjectFileIndex.getInstance(project)
     fun scan(folder: VirtualFile, schema: String, recursive: Boolean) {
       val seen = mutableSetOf<String>()
@@ -77,7 +86,12 @@ object SqlSourceLoader {
         check(file.isDirectory) { "Not a SQL folder: ${item.path}" }
         scan(file, schema, item.recursive)
       } else {
-        check(!file.isDirectory && file.extension.equals("sql", ignoreCase = true)) { "Not a SQL file: ${item.path}" }
+        check(
+          !file.isDirectory && file.extension.equals(
+            "sql",
+            ignoreCase = true
+          )
+        ) { "Not a SQL file: ${item.path}" }
         visit(file, schema)
       }
     }

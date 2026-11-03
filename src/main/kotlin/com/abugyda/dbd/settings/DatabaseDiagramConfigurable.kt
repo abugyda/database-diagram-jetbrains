@@ -51,16 +51,20 @@ class DatabaseDiagramConfigurable : Configurable {
         row("Table spacing:") {
           comboBox(listOf("Compact", "Comfortable", "Spacious"))
             .bindItem(
-              getter = { when (settings.state.tableDensity) {
-                "comfortable" -> "Comfortable"
-                "spacious" -> "Spacious"
-                else -> "Compact"
-              } },
-              setter = { settings.state.tableDensity = when (it) {
-                "Comfortable" -> "comfortable"
-                "Spacious" -> "spacious"
-                else -> "compact"
-              } }
+              getter = {
+                when (settings.state.tableDensity) {
+                  "comfortable" -> "Comfortable"
+                  "spacious" -> "Spacious"
+                  else -> "Compact"
+                }
+              },
+              setter = {
+                settings.state.tableDensity = when (it) {
+                  "Comfortable" -> "comfortable"
+                  "Spacious" -> "spacious"
+                  else -> "compact"
+                }
+              }
             )
             .comment("Padding inside table headers and column rows. Individual diagrams can save their own spacing.")
         }
@@ -77,7 +81,9 @@ class DatabaseDiagramConfigurable : Configurable {
       group("Rendering") {
         row("Offscreen frame-rate target:") {
           comboBox(listOf(30, 60))
-            .bindItem(getter = { settings.state.targetFrameRate }, setter = { settings.state.targetFrameRate = it ?: 60 })
+            .bindItem(
+              getter = { settings.state.targetFrameRate },
+              setter = { settings.state.targetFrameRate = it ?: 60 })
             .comment("60 FPS recommended. Applies to offscreen JCEF rendering; actual FPS depends on the IDE and hardware.")
         }
       }
@@ -111,15 +117,22 @@ class DatabaseDiagramConfigurable : Configurable {
           row("$label:") {
             intTextField(range = 0..48)
               .bindIntText(getter = { settings.state.fontSizes[role] ?: 0 }, setter = {
-                if (it == 0) settings.state.fontSizes.remove(role) else settings.state.fontSizes[role] = it.coerceAtLeast(8)
+                if (it == 0) settings.state.fontSizes.remove(role) else settings.state.fontSizes[role] =
+                  it.coerceAtLeast(8)
               }).also { fontFields[role] = it.component }
               .validationOnInput { field ->
                 val value = field.text.toIntOrNull()
-                if (value != null && value in 1..7) com.intellij.openapi.ui.ValidationInfo("Use 0 or a size between 8 and 48", field) else null
+                if (value != null && value in 1..7) com.intellij.openapi.ui.ValidationInfo(
+                  "Use 0 or a size between 8 and 48",
+                  field
+                ) else null
               }
               .validationOnApply { field ->
                 val value = field.text.toIntOrNull()
-                if (value != null && value in 1..7) com.intellij.openapi.ui.ValidationInfo("Use 0 or a size between 8 and 48", field) else null
+                if (value != null && value in 1..7) com.intellij.openapi.ui.ValidationInfo(
+                  "Use 0 or a size between 8 and 48",
+                  field
+                ) else null
               }
           }
         }
@@ -129,7 +142,9 @@ class DatabaseDiagramConfigurable : Configurable {
       group("Grid and snapping") {
         row {
           checkBox("Override diagram grid and snapping settings")
-            .bindSelected(getter = { settings.state.overrideDiagramAlignment }, setter = { settings.state.overrideDiagramAlignment = it })
+            .bindSelected(
+              getter = { settings.state.overrideDiagramAlignment },
+              setter = { settings.state.overrideDiagramAlignment = it })
             .comment("Off: global defaults with per-diagram overrides. On: enforce these settings in every diagram without replacing its saved preferences.")
         }
         row("Grid and snap spacing (px):") {
@@ -149,14 +164,19 @@ class DatabaseDiagramConfigurable : Configurable {
         }
         row {
           checkBox("Snap to grid")
-            .bindSelected(getter = { settings.state.defaultSnapToGrid }, setter = { settings.state.defaultSnapToGrid = it })
+            .bindSelected(
+              getter = { settings.state.defaultSnapToGrid },
+              setter = { settings.state.defaultSnapToGrid = it })
             .comment("Snapping works even when the grid is hidden")
         }
         row("Snap alignment:") {
           comboBox(listOf("Grid points", "Between grid points"))
             .bindItem(
               getter = { if (settings.state.defaultSnapAlignment == "midpoint") "Between grid points" else "Grid points" },
-              setter = { settings.state.defaultSnapAlignment = if (it == "Between grid points") "midpoint" else "grid" }
+              setter = {
+                settings.state.defaultSnapAlignment =
+                  if (it == "Between grid points") "midpoint" else "grid"
+              }
             )
         }
       }
@@ -203,9 +223,10 @@ class DatabaseDiagramConfigurable : Configurable {
     }
     panels.addAll(listOf(general, fonts, grid, descriptions))
     return JBTabbedPane().apply {
-      listOf("General", "Fonts", "Grid and Snapping", "Descriptions").zip(panels).forEach { (title, contents) ->
-        addTab(title, JBScrollPane(contents).apply { border = null })
-      }
+      listOf("General", "Fonts", "Grid and Snapping", "Descriptions").zip(panels)
+        .forEach { (title, contents) ->
+          addTab(title, JBScrollPane(contents).apply { border = null })
+        }
     }
   }
 
@@ -215,16 +236,18 @@ class DatabaseDiagramConfigurable : Configurable {
     groupMergeToleranceField?.let { field ->
       val value = field.text.toIntOrNull()
       if (value == null || value !in 0..120) throw com.intellij.openapi.options.ConfigurationException(
-        "Group merge tolerance must be between 0 and 120 px")
+        "Group merge tolerance must be between 0 and 120 px"
+      )
     }
     // Validate inactive tabs too: DialogPanel skips controls that are not showing.
     for ((role, field) in fontFields) {
       val value = field.text.toIntOrNull()
       val valid = if (role == "default") value != null && value in 10..24
-        else value != null && (value == 0 || value in 8..48)
+      else value != null && (value == 0 || value in 8..48)
       if (!valid) throw com.intellij.openapi.options.ConfigurationException(
         if (role == "default") "Default font size must be between 10 and 24 px"
-        else "${DiagramFonts.roles[role]}: use 0 or a size between 8 and 48 px")
+        else "${DiagramFonts.roles[role]}: use 0 or a size between 8 and 48 px"
+      )
     }
     panels.flatMap { it.validateAll() }.firstOrNull()?.let {
       throw com.intellij.openapi.options.ConfigurationException(it.message)
@@ -235,7 +258,11 @@ class DatabaseDiagramConfigurable : Configurable {
       .onSettingsChanged(settings.state)
   }
 
-  override fun reset() { panels.forEach { it.reset() } }
+  override fun reset() {
+    panels.forEach { it.reset() }
+  }
 
-  override fun disposeUIResources() { panels.clear(); fontFields.clear(); groupMergeToleranceField = null }
+  override fun disposeUIResources() {
+    panels.clear(); fontFields.clear(); groupMergeToleranceField = null
+  }
 }

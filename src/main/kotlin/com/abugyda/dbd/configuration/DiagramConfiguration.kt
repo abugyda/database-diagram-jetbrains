@@ -11,7 +11,10 @@ data class SqlImport(
 )
 
 data class TableFilter(val mode: String = "exclude", val tables: Set<String> = emptySet()) {
-  init { require(mode in setOf("include", "exclude")) { "Unknown table filter mode '$mode'" } }
+  init {
+    require(mode in setOf("include", "exclude")) { "Unknown table filter mode '$mode'" }
+  }
+
   fun includes(id: String): Boolean = if (mode == "include") id in tables else id !in tables
 }
 
@@ -34,7 +37,8 @@ data class DiagramConfiguration(
           append("      type: folder\n")
           append("      recursive: ${it.recursive}\n")
         }
-        it.schema?.takeIf(String::isNotBlank)?.let { name -> append("      schema: ${quote(name)}\n") }
+        it.schema?.takeIf(String::isNotBlank)
+          ?.let { name -> append("      schema: ${quote(name)}\n") }
       }
     }
     append("  table_filter:\n    mode: ${tableFilter.mode}\n")
@@ -54,19 +58,38 @@ data class DiagramConfiguration(
       val filter = schema?.getKeyValueByKey("table_filter")?.value as? YAMLMapping
       val mode = text(filter?.getKeyValueByKey("mode")?.value) ?: "exclude"
       return DiagramConfiguration(
-        imports = (schema?.getKeyValueByKey("imports")?.value as? YAMLSequence)?.items.orEmpty().mapNotNull { item ->
-          val mapping = item.value as? YAMLMapping
-          val path = text(mapping?.getKeyValueByKey("path")?.value ?: item.value) ?: return@mapNotNull null
-          val type = text(mapping?.getKeyValueByKey("type")?.value) ?: "file"
-          require(type in setOf("file", "folder")) { "Unknown SQL source type '$type' for '$path'" }
-          val recursive = text(mapping?.getKeyValueByKey("recursive")?.value)
-          require(recursive == null || recursive in setOf("true", "false")) { "Expected true or false for recursive in '$path'" }
-          SqlImport(path, text(mapping?.getKeyValueByKey("schema")?.value), type == "folder", recursive != "false")
-        },
+        imports = (schema?.getKeyValueByKey("imports")?.value as? YAMLSequence)?.items.orEmpty()
+          .mapNotNull { item ->
+            val mapping = item.value as? YAMLMapping
+            val path =
+              text(mapping?.getKeyValueByKey("path")?.value ?: item.value) ?: return@mapNotNull null
+            val type = text(mapping?.getKeyValueByKey("type")?.value) ?: "file"
+            require(
+              type in setOf(
+                "file",
+                "folder"
+              )
+            ) { "Unknown SQL source type '$type' for '$path'" }
+            val recursive = text(mapping?.getKeyValueByKey("recursive")?.value)
+            require(
+              recursive == null || recursive in setOf(
+                "true",
+                "false"
+              )
+            ) { "Expected true or false for recursive in '$path'" }
+            SqlImport(
+              path,
+              text(mapping?.getKeyValueByKey("schema")?.value),
+              type == "folder",
+              recursive != "false"
+            )
+          },
         dialect = text(schema?.getKeyValueByKey("dialect")?.value),
         defaultSchema = text(schema?.getKeyValueByKey("default_schema")?.value) ?: "public",
-        tableFilter = TableFilter(mode, (filter?.getKeyValueByKey("tables")?.value as? YAMLSequence)
-          ?.items.orEmpty().mapNotNull { text(it.value) }.toSet())
+        tableFilter = TableFilter(
+          mode, (filter?.getKeyValueByKey("tables")?.value as? YAMLSequence)
+          ?.items.orEmpty().mapNotNull { text(it.value) }.toSet()
+        )
       )
     }
   }

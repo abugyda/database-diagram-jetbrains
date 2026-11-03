@@ -84,8 +84,10 @@ class WebviewBridge {
     val raw: String? = null
   )
 
-  data class TextStyle(val foreground: String? = null, val background: String? = null,
-    val bold: Boolean = false, val italic: Boolean = false)
+  data class TextStyle(
+    val foreground: String? = null, val background: String? = null,
+    val bold: Boolean = false, val italic: Boolean = false
+  )
 
   // ── IDE → Webview ─────────────────────────────────────────────────────────
 
@@ -103,8 +105,11 @@ class WebviewBridge {
       val settings: GlobalSettings? = null
     ) : Server()
 
-    data class UpdateTheme(val theme: String, val colors: Map<String, String> = emptyMap(),
-      val textStyles: Map<String, TextStyle> = emptyMap()) : Server()
+    data class UpdateTheme(
+      val theme: String, val colors: Map<String, String> = emptyMap(),
+      val textStyles: Map<String, TextStyle> = emptyMap()
+    ) : Server()
+
     data class UpdateGlobalSettings(val settings: GlobalSettings) : Server()
   }
 

@@ -7,12 +7,19 @@ internal class SqlSourcesTableModel(initial: List<SqlImport>) : AbstractTableMod
   private val sources = initial.toMutableList()
   override fun getRowCount() = sources.size
   override fun getColumnCount() = 3
-  override fun getColumnName(column: Int) = arrayOf("SQL source", "Schema override", "Subfolders")[column]
-  override fun getColumnClass(column: Int): Class<*> = if (column == 2) java.lang.Boolean::class.java else String::class.java
+  override fun getColumnName(column: Int) =
+    arrayOf("SQL source", "Schema override", "Subfolders")[column]
+
+  override fun getColumnClass(column: Int): Class<*> =
+    if (column == 2) java.lang.Boolean::class.java else String::class.java
+
   override fun isCellEditable(row: Int, column: Int) = column != 2 || sources[row].folder
   override fun getValueAt(row: Int, column: Int): Any? = sources[row].let {
-    when (column) { 0 -> it.path; 1 -> it.schema ?: ""; else -> if (it.folder) it.recursive else null }
+    when (column) {
+      0 -> it.path; 1 -> it.schema ?: ""; else -> if (it.folder) it.recursive else null
+    }
   }
+
   override fun setValueAt(value: Any?, row: Int, column: Int) {
     val source = sources[row]
     sources[row] = when (column) {
@@ -22,6 +29,7 @@ internal class SqlSourcesTableModel(initial: List<SqlImport>) : AbstractTableMod
     }
     if (sources[row] != source) fireTableRowsUpdated(row, row)
   }
+
   fun sourceAt(row: Int) = sources[row]
   fun imports(): List<SqlImport> = sources.toList()
   fun add(source: SqlImport) {
@@ -29,5 +37,8 @@ internal class SqlSourcesTableModel(initial: List<SqlImport>) : AbstractTableMod
     sources.add(source)
     fireTableRowsInserted(sources.lastIndex, sources.lastIndex)
   }
-  fun remove(row: Int) { sources.removeAt(row); fireTableRowsDeleted(row, row) }
+
+  fun remove(row: Int) {
+    sources.removeAt(row); fireTableRowsDeleted(row, row)
+  }
 }

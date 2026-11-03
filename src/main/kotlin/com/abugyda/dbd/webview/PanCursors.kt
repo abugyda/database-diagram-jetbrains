@@ -15,9 +15,11 @@ object PanCursors {
   fun get(grabbing: Boolean): Cursor = if (grabbing) closed else open
 
   internal fun image(grabbing: Boolean): BufferedImage = ImageIO.read(
-    requireNotNull(PanCursors::class.java.getResource(
-      if (grabbing) "/cursors/hand_grabbing.png" else "/cursors/hand_grab.png"
-    ))
+    requireNotNull(
+      PanCursors::class.java.getResource(
+        if (grabbing) "/cursors/hand_grabbing.png" else "/cursors/hand_grab.png"
+      )
+    )
   )
 
   private fun create(grabbing: Boolean): Cursor {

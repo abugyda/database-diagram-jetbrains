@@ -9,7 +9,8 @@ import org.jetbrains.yaml.psi.YAMLSequence
 
 object ErdYamlUpdater {
   private val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-  private val pendingPlaceholder = com.intellij.openapi.util.Key.create<Boolean>("dbdiagram.pending.mapping")
+  private val pendingPlaceholder =
+    com.intellij.openapi.util.Key.create<Boolean>("dbdiagram.pending.mapping")
 
   private fun removePlaceholder(mapping: YAMLMapping) {
     if (mapping.getUserData(pendingPlaceholder) == true) {
@@ -21,9 +22,13 @@ object ErdYamlUpdater {
   private fun editableMapping(project: Project, mapping: YAMLMapping): YAMLMapping {
     if (!mapping.text.trimStart().startsWith("{")) return mapping
     val empty = mapping.keyValues.isEmpty()
-    val content = if (empty) "  _dummy: value" else mapping.keyValues.joinToString("\n") { it.text.prependIndent("  ") }
-    val generated = YAMLElementGenerator.getInstance(project).createDummyYamlWithText("value:\n$content")
-    val replacement = (generated.documents.first().topLevelValue as YAMLMapping).getKeyValueByKey("value")!!.value!!
+    val content = if (empty) "  _dummy: value" else mapping.keyValues.joinToString("\n") {
+      it.text.prependIndent("  ")
+    }
+    val generated =
+      YAMLElementGenerator.getInstance(project).createDummyYamlWithText("value:\n$content")
+    val replacement =
+      (generated.documents.first().topLevelValue as YAMLMapping).getKeyValueByKey("value")!!.value!!
     val result = mapping.replace(replacement) as YAMLMapping
     if (empty) result.putUserData(pendingPlaceholder, true)
     return result
@@ -118,13 +123,17 @@ object ErdYamlUpdater {
         var note = findNoteMapping(yamlFile, id)
         if (note == null) {
           val content = item["content"] as? String ?: continue
-          appendNote(project, root, mapOf("id" to id, "name" to (item["name"] ?: id), "text" to content))
+          appendNote(
+            project,
+            root,
+            mapOf("id" to id, "name" to (item["name"] ?: id), "text" to content)
+          )
           note = findNoteMapping(yamlFile, id) ?: error("Could not create note '$id'")
         }
         item["name"]?.let { setScalar(project, note, "name", mapper.writeValueAsString(it)) }
         item["content"]?.let {
           val key = if (note.getKeyValueByKey("text") != null) "text"
-            else if (note.getKeyValueByKey("content") != null) "content" else "text"
+          else if (note.getKeyValueByKey("content") != null) "content" else "text"
           setScalar(project, note, key, mapper.writeValueAsString(it))
         }
         for (key in listOf(
@@ -148,7 +157,11 @@ object ErdYamlUpdater {
     val json = mapper.writeValueAsString(values)
     val sequence = blockNotes(project, root)
     if (sequence == null) {
-      val fields = values.entries.joinToString("\n    ") { (key, value) -> "$key: ${mapper.writeValueAsString(value)}" }
+      val fields = values.entries.joinToString("\n    ") { (key, value) ->
+        "$key: ${
+          mapper.writeValueAsString(value)
+        }"
+      }
       val file = gen.createDummyYamlWithText("notes:\n  - $fields")
       root.putKeyValue((file.documents.first().topLevelValue as YAMLMapping).keyValues.first())
       removePlaceholder(root)
@@ -173,7 +186,8 @@ object ErdYamlUpdater {
       else "  - " + mapping.keyValues.joinToString("\n    ") { it.text }
     }
     val file = YAMLElementGenerator.getInstance(project).createDummyYamlWithText("notes:\n$items")
-    val replacement = (file.documents.first().topLevelValue as YAMLMapping).keyValues.first().value!!
+    val replacement =
+      (file.documents.first().topLevelValue as YAMLMapping).keyValues.first().value!!
     return sequence.replace(replacement) as YAMLSequence
   }
 
@@ -187,13 +201,18 @@ object ErdYamlUpdater {
       ?.let { editableMapping(yamlFile.project, it) }
   }
 
-  fun configureDiagram(project: Project, yamlFile: YAMLFile, config: com.abugyda.dbd.configuration.DiagramConfiguration) {
+  fun configureDiagram(
+    project: Project,
+    yamlFile: YAMLFile,
+    config: com.abugyda.dbd.configuration.DiagramConfiguration
+  ) {
     WriteCommandAction.runWriteCommandAction(project, "Configure ERD diagram", null, Runnable {
       val root = root(yamlFile) ?: error("Expected a YAML root mapping")
       val schema = getOrCreateMapping(project, root, "schema")
       val current = com.abugyda.dbd.configuration.DiagramConfiguration.read(yamlFile)
       // Copy block-style entries instead of serializing collections as one long JSON line.
-      val generated = YAMLElementGenerator.getInstance(project).createDummyYamlWithText(config.yaml())
+      val generated =
+        YAMLElementGenerator.getInstance(project).createDummyYamlWithText(config.yaml())
       val generatedSchema = (generated.documents.first().topLevelValue as YAMLMapping)
         .getKeyValueByKey("schema")!!.value as YAMLMapping
       for (key in listOf("imports", "table_filter")) {
@@ -201,11 +220,15 @@ object ErdYamlUpdater {
         val existing = schema.getKeyValueByKey(key)
         val value = existing?.value
         if (key == "imports" && current.imports == config.imports && value is YAMLSequence &&
-          (value.items.isEmpty() || !value.text.trimStart().startsWith("["))) continue
+          (value.items.isEmpty() || !value.text.trimStart().startsWith("["))
+        ) continue
         if (key == "table_filter" && current.tableFilter == config.tableFilter && value is YAMLMapping &&
-          !value.text.trimStart().startsWith("{")) {
+          !value.text.trimStart().startsWith("{")
+        ) {
           val tables = value.getKeyValueByKey("tables")?.value as? YAMLSequence
-          if (tables != null && (tables.items.isEmpty() || !tables.text.trimStart().startsWith("["))) continue
+          if (tables != null && (tables.items.isEmpty() || !tables.text.trimStart()
+              .startsWith("["))
+          ) continue
         }
         if (existing?.text == replacement.text) continue
         if (existing == null) schema.putKeyValue(replacement) else existing.replace(replacement)
@@ -244,7 +267,11 @@ object ErdYamlUpdater {
     val gen = YAMLElementGenerator.getInstance(project)
     val existing = mapping.getKeyValueByKey(key)
     if (existing?.value?.text == value) return
-    if (existing?.value != null && runCatching { mapper.readTree(existing.value!!.text) == mapper.readTree(value) }.getOrDefault(false)) return
+    if (existing?.value != null && runCatching {
+        mapper.readTree(existing.value!!.text) == mapper.readTree(
+          value
+        )
+      }.getOrDefault(false)) return
     if (existing != null) {
       val dummy = gen.createDummyYamlWithText("$key: $value")
       existing.replace(

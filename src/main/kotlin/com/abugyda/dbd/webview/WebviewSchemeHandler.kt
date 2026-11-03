@@ -35,9 +35,10 @@ class WebviewSchemeHandler(
     if (actualPath.contains("..")) return false
     inputStream = javaClass.getResourceAsStream(resourcePath)?.let { stream ->
       if (actualPath.endsWith(".html")) stream.bufferedReader()
-                .use {
-          val variables = colors.filter { (key, value) -> key.matches(Regex("--[a-z-]+")) && value.matches(Regex("#[0-9a-fA-F]{6}")) }
-            .entries.joinToString(";") { (key, value) -> "$key:$value" }
+        .use {
+          val variables =
+            colors.filter { (key, value) -> key.matches(Regex("--[a-z-]+")) && value.matches(Regex("#[0-9a-fA-F]{6}")) }
+              .entries.joinToString(";") { (key, value) -> "$key:$value" }
           it.readText().replace("<html", "<html data-theme=\"$theme\" style=\"$variables\"")
             .replace("<body>", "<body class=\"$theme\">").byteInputStream()
         }

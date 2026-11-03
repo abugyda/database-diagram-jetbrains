@@ -32,7 +32,8 @@ class SchemaPreviewFileEditor(
   var pendingLayoutSaves = 0; private set
 
   private val webviewPanel = WebviewPanel(this, file, this, project)
-  private val refreshController = SchemaRefreshController(project, file, document, this,
+  private val refreshController = SchemaRefreshController(
+    project, file, document, this,
     canRefresh = { !isDisposed && !project.isDisposed && pendingLayoutSaves == 0 },
     deliver = { publishSchema(it) }, reportError = { webviewPanel.showSchemaError(it) })
 
@@ -43,7 +44,8 @@ class SchemaPreviewFileEditor(
         updateTheme()
       }
     })
-    conn.subscribe(com.intellij.openapi.editor.colors.EditorColorsManager.TOPIC,
+    conn.subscribe(
+      com.intellij.openapi.editor.colors.EditorColorsManager.TOPIC,
       com.intellij.openapi.editor.colors.EditorColorsListener { updateTheme() })
     conn.subscribe(
       DatabaseDiagramSettings.TOPIC,
@@ -106,23 +108,45 @@ class SchemaPreviewFileEditor(
   override fun resolveThemeColors(): Map<String, String> {
     val scheme = com.intellij.openapi.editor.colors.EditorColorsManager.getInstance().globalScheme
     val overrides = com.abugyda.dbd.settings.DiagramColors.overrides(scheme)
-    if (DatabaseDiagramSettings.instance.state.defaultTheme in setOf("Light", "Dark")) return overrides
+    if (DatabaseDiagramSettings.instance.state.defaultTheme in setOf(
+        "Light",
+        "Dark"
+      )
+    ) return overrides
     val dark = computeTheme() == "dark"
     val fallbackBackground = if (dark) java.awt.Color(0x1e1f22) else java.awt.Color(0xf4f4f4)
     val fallbackText = if (dark) java.awt.Color(0xdfe1e5) else java.awt.Color(0x1f2937)
-    fun color(key: String, fallback: java.awt.Color) = javax.swing.UIManager.getColor(key) ?: fallback
+    fun color(key: String, fallback: java.awt.Color) =
+      javax.swing.UIManager.getColor(key) ?: fallback
+
     fun hex(value: java.awt.Color) = "#%02x%02x%02x".format(value.red, value.green, value.blue)
     val panel = color("Panel.background", fallbackBackground)
-    val editor = com.intellij.openapi.editor.colors.EditorColorsManager.getInstance().globalScheme.defaultBackground
+    val editor =
+      com.intellij.openapi.editor.colors.EditorColorsManager.getInstance().globalScheme.defaultBackground
     val editorDark = (editor.red * 299 + editor.green * 587 + editor.blue * 114) < 128000
     return mapOf(
       "--bg-color" to hex(if (editorDark == dark) editor else panel),
       "--surface-color" to hex(panel),
       "--text-color" to hex(color("Label.foreground", fallbackText)),
-      "--muted-color" to hex(color("Label.disabledForeground", if (dark) java.awt.Color(0xa5adba) else java.awt.Color(0x64748b))),
-      "--border-color" to hex(color("Component.borderColor", if (dark) java.awt.Color(0x4e5157) else java.awt.Color(0xd1d5db))),
+      "--muted-color" to hex(
+        color(
+          "Label.disabledForeground",
+          if (dark) java.awt.Color(0xa5adba) else java.awt.Color(0x64748b)
+        )
+      ),
+      "--border-color" to hex(
+        color(
+          "Component.borderColor",
+          if (dark) java.awt.Color(0x4e5157) else java.awt.Color(0xd1d5db)
+        )
+      ),
       "--input-color" to hex(color("TextField.background", panel)),
-      "--diagram-grid-color" to hex(color("Separator.foreground", if (dark) java.awt.Color(0x555b66) else java.awt.Color(0x9ca3af)))
+      "--diagram-grid-color" to hex(
+        color(
+          "Separator.foreground",
+          if (dark) java.awt.Color(0x555b66) else java.awt.Color(0x9ca3af)
+        )
+      )
     ) + overrides
   }
 
@@ -148,7 +172,11 @@ class SchemaPreviewFileEditor(
   override fun onConfigureDiagram(includeTableIds: List<String>) {
     // Acknowledge the bridge request before opening a modal dialog.
     ApplicationManager.getApplication().invokeLater {
-      if (!isDisposed) com.abugyda.dbd.configuration.DiagramConfigurationUi.configure(project, file, includeTableIds)
+      if (!isDisposed) com.abugyda.dbd.configuration.DiagramConfigurationUi.configure(
+        project,
+        file,
+        includeTableIds
+      )
     }
   }
 

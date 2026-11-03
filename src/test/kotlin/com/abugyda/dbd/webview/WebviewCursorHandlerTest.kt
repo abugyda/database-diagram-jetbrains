@@ -19,9 +19,11 @@ class WebviewCursorHandlerTest {
       null
     } as com.intellij.openapi.wm.IdeGlassPane
     val handler = WebviewCursorHandler({ listOf(root) }, { true }, { pane })
-    for ((css, type) in listOf("pointer" to Cursor.HAND_CURSOR,
+    for ((css, type) in listOf(
+      "pointer" to Cursor.HAND_CURSOR,
       "move" to Cursor.MOVE_CURSOR, "col-resize" to Cursor.E_RESIZE_CURSOR,
-      "nwse-resize" to Cursor.NW_RESIZE_CURSOR, "text" to Cursor.TEXT_CURSOR)) {
+      "nwse-resize" to Cursor.NW_RESIZE_CURSOR, "text" to Cursor.TEXT_CURSOR
+    )) {
       handler.onCssCursorChange(css)
       SwingUtilities.invokeAndWait { }
       assertEquals(type, root.cursor.type)
@@ -38,7 +40,10 @@ class WebviewCursorHandlerTest {
     assertNull(overrides.last())
     assertEquals(Cursor.DEFAULT_CURSOR, root.cursor.type)
     val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-    val message = mapper.readValue("""{"type":"UPDATE_CURSOR","cursor":"move"}""", WebviewBridge.Client::class.java)
+    val message = mapper.readValue(
+      """{"type":"UPDATE_CURSOR","cursor":"move"}""",
+      WebviewBridge.Client::class.java
+    )
     assertEquals("move", (message as WebviewBridge.Client.UpdateCursor).cursor)
   }
 
@@ -52,7 +57,9 @@ class WebviewCursorHandlerTest {
     assertEquals(32, closed.height)
     assertTrue(open.colorModel.hasAlpha())
     assertTrue(closed.colorModel.hasAlpha())
-    assertFalse(open.getRGB(0, 0, 32, 32, null, 0, 32).contentEquals(closed.getRGB(0, 0, 32, 32, null, 0, 32)))
+    assertFalse(
+      open.getRGB(0, 0, 32, 32, null, 0, 32).contentEquals(closed.getRGB(0, 0, 32, 32, null, 0, 32))
+    )
     val root = JPanel()
     val handler = WebviewCursorHandler({ listOf(root) }, { true })
     for ((css, grabbing) in listOf("grab" to false, "grabbing" to true)) {
@@ -74,8 +81,17 @@ class WebviewCursorHandlerTest {
     child.add(canvas)
     root.add(child)
     val handler = WebviewCursorHandler({ listOf(root) }, { true })
-    for (type in listOf(Cursor.HAND_CURSOR, Cursor.MOVE_CURSOR, Cursor.E_RESIZE_CURSOR, Cursor.TEXT_CURSOR, Cursor.DEFAULT_CURSOR)) {
-      assertFalse("JCEF must still update its native window or offscreen surface", handler.onCursorChange(null, type))
+    for (type in listOf(
+      Cursor.HAND_CURSOR,
+      Cursor.MOVE_CURSOR,
+      Cursor.E_RESIZE_CURSOR,
+      Cursor.TEXT_CURSOR,
+      Cursor.DEFAULT_CURSOR
+    )) {
+      assertFalse(
+        "JCEF must still update its native window or offscreen surface",
+        handler.onCursorChange(null, type)
+      )
       SwingUtilities.invokeAndWait { }
       assertEquals(type, root.cursor.type)
       assertEquals(type, canvas.cursor.type)

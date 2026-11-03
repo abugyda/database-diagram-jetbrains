@@ -49,9 +49,11 @@ class DatabaseDiagramSettings : PersistentStateComponent<DatabaseDiagramSettings
     state.diagramFontSize = state.diagramFontSize.coerceIn(10, 24)
     state.targetFrameRate = state.targetFrameRate.coerceIn(30, 60)
     state.defaultGridSize = state.defaultGridSize.coerceIn(4, 64)
-    if (state.tableDensity !in setOf("compact", "comfortable", "spacious")) state.tableDensity = "compact"
+    if (state.tableDensity !in setOf("compact", "comfortable", "spacious")) state.tableDensity =
+      "compact"
     state.groupMergeTolerance = state.groupMergeTolerance.coerceIn(0, 120)
-    if (state.defaultSnapAlignment !in setOf("grid", "midpoint")) state.defaultSnapAlignment = "grid"
+    if (state.defaultSnapAlignment !in setOf("grid", "midpoint")) state.defaultSnapAlignment =
+      "grid"
     myState = state
   }
 

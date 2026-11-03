@@ -12,14 +12,18 @@ import com.intellij.psi.PsiDirectory
 import com.abugyda.dbd.configuration.DiagramConfigurationUi
 
 /** Folder context action that creates a configured diagram through the IDE UI. */
-class NewErdYamlAction : AnAction("ERD Diagram (.erd.yaml)", "Create an ERD diagram from project SQL files", AllIcons.FileTypes.Yaml), DumbAware {
+class NewErdYamlAction : AnAction(
+  "ERD Diagram (.erd.yaml)",
+  "Create an ERD diagram from project SQL files",
+  AllIcons.FileTypes.Yaml
+), DumbAware {
   override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
   override fun update(event: AnActionEvent) {
     event.presentation.isEnabledAndVisible = event.project != null && (
-      event.getData(LangDataKeys.IDE_VIEW)?.directories?.isNotEmpty() == true ||
-        event.getData(CommonDataKeys.PSI_ELEMENT) is PsiDirectory ||
-        event.getData(CommonDataKeys.VIRTUAL_FILE)?.isDirectory == true)
+        event.getData(LangDataKeys.IDE_VIEW)?.directories?.isNotEmpty() == true ||
+            event.getData(CommonDataKeys.PSI_ELEMENT) is PsiDirectory ||
+            event.getData(CommonDataKeys.VIRTUAL_FILE)?.isDirectory == true)
   }
 
   internal fun targetDirectory(event: AnActionEvent): VirtualFile? {

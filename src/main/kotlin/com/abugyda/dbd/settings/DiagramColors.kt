@@ -41,33 +41,65 @@ object DiagramColors {
     "--group-label-color" to (0x1f2937 to 0xdfe1e5),
     "--relation-color" to (0x64748b to 0xa5adba)
   )
+
   data class Entry(val label: String, val token: String, val background: Boolean = false) {
-    val key = ColorKey.createColorKey("ABUGYDA_DATABASE_DIAGRAM_" + token.removePrefix("--").replace('-', '_').uppercase(),
+    val key = ColorKey.createColorKey(
+      "ABUGYDA_DATABASE_DIAGRAM_" + token.removePrefix("--").replace('-', '_').uppercase(),
       defaults.getValue(token).let { JBColor(it.first, it.second) })
   }
+
   val entries = listOf(
-    Entry("Canvas//Background", "--bg-color", true), Entry("Canvas//Grid dots", "--diagram-grid-color"),
-    Entry("Surfaces//Background", "--surface-color", true), Entry("Surfaces//Borders and row dividers", "--border-color"),
-    Entry("Surfaces//Input background", "--input-color", true), Entry("Text//Default text", "--text-color"),
-    Entry("Text//Secondary text", "--muted-color"), Entry("Text//Accent", "--accent-color"),
+    Entry("Canvas//Background", "--bg-color", true),
+    Entry("Canvas//Grid dots", "--diagram-grid-color"),
+    Entry("Surfaces//Background", "--surface-color", true),
+    Entry("Surfaces//Borders and row dividers", "--border-color"),
+    Entry("Surfaces//Input background", "--input-color", true),
+    Entry("Text//Default text", "--text-color"),
+    Entry("Text//Secondary text", "--muted-color"),
+    Entry("Text//Accent", "--accent-color"),
     Entry("Tables//Default header background", "--default-table-color", true),
-    Entry("Tables//Header text", "--table-header-text"), Entry("Tables//Description", "--table-description-color"),
-    Entry("Columns//Name", "--column-name-color"), Entry("Columns//Description", "--column-description-color"),
-    Entry("Columns//Type", "--column-type-color"), Entry("Columns//Default value", "--default-color"),
-    Entry("Columns//Primary key icon", "--key-color"), Entry("Columns//Foreign key icon", "--foreign-key-color"),
+    Entry("Tables//Header text", "--table-header-text"),
+    Entry("Tables//Description", "--table-description-color"),
+    Entry("Columns//Name", "--column-name-color"),
+    Entry("Columns//Description", "--column-description-color"),
+    Entry("Columns//Type", "--column-type-color"),
+    Entry("Columns//Default value", "--default-color"),
+    Entry("Columns//Primary key icon", "--key-color"),
+    Entry("Columns//Foreign key icon", "--foreign-key-color"),
     Entry("Columns//Primary + foreign key icon (PK + FK)", "--combined-key-color"),
-    Entry("Columns//Indexed row background", "--indexed-bg", true), Entry("Columns//Indexed row divider", "--indexed-border"),
-    Entry("Notes//Default background", "--default-note-color", true), Entry("Notes//Header text", "--note-header-color"),
-    Entry("Notes//Body text", "--note-text-color"), Entry("Groups//Label text", "--group-label-color"),
+    Entry("Columns//Indexed row background", "--indexed-bg", true),
+    Entry("Columns//Indexed row divider", "--indexed-border"),
+    Entry("Notes//Default background", "--default-note-color", true),
+    Entry("Notes//Header text", "--note-header-color"),
+    Entry("Notes//Body text", "--note-text-color"),
+    Entry("Groups//Label text", "--group-label-color"),
     Entry("Relationships//Line", "--relation-color")
   )
-  data class TextEntry(val role: String, val label: String, val foregroundToken: String? = null,
-    val backgroundToken: String? = null, val autoContrast: Boolean = false) {
-    val key = TextAttributesKey.createTextAttributesKey("ABUGYDA_DATABASE_DIAGRAM_TEXT_" + role.uppercase(), HighlighterColors.TEXT)
+
+  data class TextEntry(
+    val role: String, val label: String, val foregroundToken: String? = null,
+    val backgroundToken: String? = null, val autoContrast: Boolean = false
+  ) {
+    val key = TextAttributesKey.createTextAttributesKey(
+      "ABUGYDA_DATABASE_DIAGRAM_TEXT_" + role.uppercase(),
+      HighlighterColors.TEXT
+    )
   }
+
   val textEntries = listOf(
-    TextEntry("tableHeader", "Tables//Header", "--table-header-text", "--default-table-color", true),
-    TextEntry("tableDescription", "Tables//Description", "--table-description-color", autoContrast = true),
+    TextEntry(
+      "tableHeader",
+      "Tables//Header",
+      "--table-header-text",
+      "--default-table-color",
+      true
+    ),
+    TextEntry(
+      "tableDescription",
+      "Tables//Description",
+      "--table-description-color",
+      autoContrast = true
+    ),
     TextEntry("columnName", "Columns//Name", "--column-name-color"),
     TextEntry("columnDescription", "Columns//Description", "--column-description-color"),
     TextEntry("columnType", "Columns//Type", "--column-type-color"),
@@ -84,19 +116,30 @@ object DiagramColors {
     TextEntry("groupLabel", "Groups//Label text", "--group-label-color"),
     TextEntry("relationLabel", "Relationships//Label")
   )
-  private val textTokens get() = textEntries.flatMap { listOfNotNull(it.foregroundToken, it.backgroundToken) }.toSet()
+  private val textTokens
+    get() = textEntries.flatMap {
+      listOfNotNull(
+        it.foregroundToken,
+        it.backgroundToken
+      )
+    }.toSet()
   val colorEntries get() = entries.filter { it.token !in textTokens }
 
   private fun effective(scheme: EditorColorsScheme, entry: TextEntry): TextAttributes {
     val attributes = scheme.getAttributes(entry.key).clone()
     // Keep colors saved by the previous color-only settings page until replaced.
-    for ((token, background) in listOf(entry.foregroundToken to false, entry.backgroundToken to true)) {
+    for ((token, background) in listOf(
+      entry.foregroundToken to false,
+      entry.backgroundToken to true
+    )) {
       val legacy = entries.find { it.token == token } ?: continue
       val color = scheme.getColor(legacy.key) ?: continue
       if (color.rgb != legacy.key.defaultColor?.rgb) {
         val default = defaultAttributes(scheme, entry)
-        if (background && attributes.backgroundColor == default.backgroundColor) attributes.backgroundColor = color
-        if (!background && attributes.foregroundColor == default.foregroundColor) attributes.foregroundColor = color
+        if (background && attributes.backgroundColor == default.backgroundColor) attributes.backgroundColor =
+          color
+        if (!background && attributes.foregroundColor == default.foregroundColor) attributes.foregroundColor =
+          color
       }
     }
     return attributes
@@ -106,21 +149,29 @@ object DiagramColors {
     val manager = com.intellij.openapi.editor.colors.EditorColorsManager.getInstance()
     val background = scheme.defaultBackground
     val dark = background.red * 299 + background.green * 587 + background.blue * 114 < 128000
-    return manager.getScheme(if (dark) "Darcula" else "Default")?.getAttributes(entry.key) ?: scheme.getAttributes(entry.key)
+    return manager.getScheme(if (dark) "Darcula" else "Default")?.getAttributes(entry.key)
+      ?: scheme.getAttributes(entry.key)
   }
 
-  fun textStyles(scheme: EditorColorsScheme): Map<String, com.abugyda.dbd.webview.WebviewBridge.TextStyle> = textEntries.associate { entry ->
-    val attributes = effective(scheme, entry)
-    // Defaults use per-card automatic contrast, while explicit scheme colors win.
-    val foreground = attributes.foregroundColor?.takeUnless {
-      entry.autoContrast && it == defaultAttributes(scheme, entry).foregroundColor
+  fun textStyles(scheme: EditorColorsScheme): Map<String, com.abugyda.dbd.webview.WebviewBridge.TextStyle> =
+    textEntries.associate { entry ->
+      val attributes = effective(scheme, entry)
+      // Defaults use per-card automatic contrast, while explicit scheme colors win.
+      val foreground = attributes.foregroundColor?.takeUnless {
+        entry.autoContrast && it == defaultAttributes(scheme, entry).foregroundColor
+      }
+      entry.role to com.abugyda.dbd.webview.WebviewBridge.TextStyle(
+        foreground = foreground?.let(::hex),
+        background = attributes.backgroundColor?.takeUnless {
+          entry.role in setOf("noteHeader", "noteBody") && it == defaultAttributes(
+            scheme,
+            entry
+          ).backgroundColor
+        }?.let(::hex),
+        bold = attributes.fontType and Font.BOLD != 0,
+        italic = attributes.fontType and Font.ITALIC != 0
+      )
     }
-    entry.role to com.abugyda.dbd.webview.WebviewBridge.TextStyle(
-      foreground = foreground?.let(::hex), background = attributes.backgroundColor?.takeUnless {
-        entry.role in setOf("noteHeader", "noteBody") && it == defaultAttributes(scheme, entry).backgroundColor
-      }?.let(::hex),
-      bold = attributes.fontType and Font.BOLD != 0, italic = attributes.fontType and Font.ITALIC != 0)
-  }
 
   fun overrides(scheme: EditorColorsScheme): Map<String, String> = buildMap {
     colorEntries.forEach { entry -> scheme.getColor(entry.key)?.let { put(entry.token, hex(it)) } }
@@ -131,19 +182,29 @@ object DiagramColors {
       entry.backgroundToken?.let { token -> style.background?.let { put(token, it) } }
     }
   }
-  private fun hex(color: java.awt.Color) = "#%02x%02x%02x".format(color.red, color.green, color.blue)
+
+  private fun hex(color: java.awt.Color) =
+    "#%02x%02x%02x".format(color.red, color.green, color.blue)
 }
 
 class DatabaseDiagramColorSettingsPage : ColorSettingsPage {
   override fun getDisplayName() = "Database Diagram"
   override fun getIcon() = AllIcons.Nodes.DataTables
   override fun getHighlighter() = PlainSyntaxHighlighter()
-  override fun getAttributeDescriptors(): Array<AttributesDescriptor> = DiagramColors.textEntries.map { AttributesDescriptor(it.label, it.key) }.toTypedArray()
+  override fun getAttributeDescriptors(): Array<AttributesDescriptor> =
+    DiagramColors.textEntries.map { AttributesDescriptor(it.label, it.key) }.toTypedArray()
+
   override fun getColorDescriptors(): Array<ColorDescriptor> = DiagramColors.colorEntries.map {
-    ColorDescriptor(it.label, it.key, if (it.background) ColorDescriptor.Kind.BACKGROUND else ColorDescriptor.Kind.FOREGROUND)
+    ColorDescriptor(
+      it.label,
+      it.key,
+      if (it.background) ColorDescriptor.Kind.BACKGROUND else ColorDescriptor.Kind.FOREGROUND
+    )
   }.toTypedArray()
+
   override fun getAdditionalHighlightingTagToDescriptorMap(): Map<String, TextAttributesKey> =
     DiagramColors.textEntries.associate { it.role to it.key }
+
   override fun getDemoText() = """
     <tableHeader>users</tableHeader>
     <tableDescription>Accounts that publish posts.</tableDescription>

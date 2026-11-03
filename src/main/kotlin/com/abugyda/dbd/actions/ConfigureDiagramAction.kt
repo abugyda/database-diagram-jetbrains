@@ -9,8 +9,9 @@ import com.abugyda.dbd.configuration.DiagramConfigurationUi
 class ConfigureDiagramAction : AnAction(), DumbAware {
   override fun update(event: AnActionEvent) {
     event.presentation.isEnabledAndVisible = event.project != null &&
-      event.getData(CommonDataKeys.VIRTUAL_FILE)?.name?.endsWith(".erd.yaml", true) == true
+        event.getData(CommonDataKeys.VIRTUAL_FILE)?.name?.endsWith(".erd.yaml", true) == true
   }
+
   override fun actionPerformed(event: AnActionEvent) {
     val project = event.project ?: return
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
